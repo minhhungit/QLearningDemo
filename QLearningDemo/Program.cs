@@ -31,7 +31,7 @@ namespace QLearningDemo
         static double LEARNING_RATE = 0.1;
         static double DISCOUNT_FACTOR = 0.9;
         static int MAX_STEPS = 15; // Maximum number of steps per evaluation
-        static int NBR_OF_TRAIN_INSTANCE = 0;
+        static int NBR_OF_TRAIN_INSTANCE = 5;
         static double REWARD_CAN_NOT_DO_ACTION = -10.0;
         static double REWARD_LAST_STEP_BUT_NOT_SEE_MOUSE = -10.0;
 
@@ -501,15 +501,15 @@ namespace QLearningDemo
                     dogY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
                 } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
 
-                // test
-                //catX = 3;
+                //// test
+                //catX = 2;
                 //catY = 3;
 
-                //mouseX = 3;
-                //mouseY = 0;
+                //mouseX = 2;
+                //mouseY = 1;
 
                 //dogX = 1;
-                //dogY = 3;
+                //dogY = 1;
 
                 env[catX, catY] = (int)Animal.CAT;
                 env[mouseX, mouseY] = (int)Animal.MOUSE;
@@ -636,7 +636,10 @@ namespace QLearningDemo
             }
 
             double averageReward = (double)totalReward / NUM_EVALUATIONS;
+
+            Console.WriteLine("=============================================================================================");
             Console.WriteLine($"Average reward over {NUM_EVALUATIONS} evaluations: {averageReward}");
+            Console.WriteLine("=============================================================================================");
         }
 
         private static readonly Random rnd = new Random();
