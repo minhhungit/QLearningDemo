@@ -1,82 +1,79 @@
 ﻿using ConsoleTableExt;
+using System.Diagnostics;
+using System.Threading;
 
 namespace QLearningDemo
 {
-    enum AgentAction
-    {
-        LEFT = 0,
-        RIGHT = 1,
-        UP = 2,
-        DOWN = 3
-    }
-    
-    enum Animal
-    {
-        CAT = 1,
-        MOUSE = 2,
-        DOG = 3
-    }
-
     class Program
     {
+        const string QTABLE_MODEL_FILE = "..\\..\\..\\qtable.txt";
+
         // Define the game environment
         static int SIZE = 4;
 
-        static int NbrOfActions = Enum.GetNames(typeof(AgentAction)).Length;
+        static int NUMBER_OF_ACTION = Enum.GetNames(typeof(AgentAction)).Length;
 
         // Initialize the Q-table
-        static double[,,] Q = new double[SIZE, SIZE, NbrOfActions];
+        static double[,,] Q = new double[SIZE, SIZE, NUMBER_OF_ACTION];
 
         // Define the Q-learning parameters
         static double LEARNING_RATE = 0.1;
         static double DISCOUNT_FACTOR = 0.9;
-        static int MAX_STEPS = 15; // Maximum number of steps per evaluation
-        static int NBR_OF_TRAIN_INSTANCE = 5;
-        static double REWARD_CAN_NOT_DO_ACTION = -10.0;
-        static double REWARD_LAST_STEP_BUT_NOT_SEE_MOUSE = -10.0;
 
-        static bool GREEDLY_ONLY_MODE = false;
-        
         // Epsilon-greedy strategy (explore or exploit)
         const double EPSILON = 0.1;
 
-        const string QTABLE_MODEL_FILE = "..\\..\\..\\qtable.txt";
-/*
-{
-	"Thuật ngữ": [
-		{
-			"Tên": "Q-Value",
-			"Mô tả": "Số liệu ước lượng cho hành động tại môi trường hiện tại",
-			"Ví dụ": "Q(s,a) là giá trị dự đoán khi thực hiện hành động a tại trạng thái s"
-		},
-		{
-			"Tên": "Learning Rate (alpha)",
-			"Mô tả": "Điều chỉnh mức độ cập nhật giá trị Q sau mỗi bước học",
-			"Ví dụ": "Nếu alpha = 0.1, tác nhân chỉ học 10% từ thông tin mới nhận được"
-		},
-		{
-			"Tên": "Discount Factor (gamma)",
-			"Mô tả": "Quyết định tầm quan trọng của phần thưởng trong tương lai so với phần thưởng hiện tại khi tính toán giá trị Q-Value cho một trạng thái hay hành động nào đó",
-			"Ví dụ": "Nếu gamma = 0.9, tác nhân sẽ ưu tiên 90% phần thưởng tương lai và 10% phần thưởng hiện tại khi tính toán Q-Value. Gamma càng lớn (gần 1) thì các phần thưởng tương lai càng được đánh giá cao, tác nhân sẽ chú trọng nhiều hơn vào các lợi ích dài hạn."
-		},
-		{
-			"Tên": "Exploration-Exploitation",
-			"Mô tả": "Là một vấn đề cốt lõi trong Reinforcement Learning, liên quan đến việc cân bằng giữa khám phá (exploration) môi trường mới để thu thập thông tin và khai thác (exploitation) những kiến thức đã học được.",
-			"Ví dụ": "Sử dụng Epsilon-Greedy Policy - nếu Epsilon nhỏ, tác nhân sẽ ít khám phá môi trường mới và chủ yếu khai thác những hành động có giá trị Q-Value cao đã biết. Ngược lại, nếu Epsilon lớn, tác nhân sẽ thường xuyên thăm dò ngẫu nhiên các hành động khác thay vì khai thác theo Q-Value."
-		},
-		{
-			"Tên": "Discount Factor (gamma)",
-			"Mô tả": "Quyết định tầm quan trọng của phần thưởng trong tương lai so với phần thưởng hiện tại khi tính toán giá trị Q-Value cho một trạng thái hay hành động nào đó",
-			"Ví dụ": "Nếu gamma = 0.9, tác nhân sẽ ưu tiên 90% phần thưởng tương lai và 10% phần thưởng hiện tại khi tính toán Q-Value. Gamma càng lớn (gần 1) thì các phần thưởng tương lai càng được đánh giá cao, tác nhân sẽ chú trọng nhiều hơn vào các lợi ích dài hạn."
-		},
-		{
-			"Tên": "Policy",
-			"Mô tả": "Cách tác nhân chọn hành động trong mỗi trạng thái",
-			"Ví dụ": "Sử dụng Q(s,a) để chọn hành động tối ưu a cho trạng thái s"
-		}
-	]
-}
-*/
+        const int NUMBER_OF_TRAIN_INSTANCE = 10;
+        const int NUMBER_OF_EVALUATE = 50;
+
+        static int MAX_STEPS = 10; // Maximum number of steps of a game
+
+        const bool ENABLE_LOG_LEARNING = false;
+
+        static bool GREEDLY_ONLY_MODE_LEARNING = false;
+        static bool GREEDLY_ONLY_MODE_EVALUATE = true;
+        
+        const bool TRAIN_ONE_CASE = false; // for testing purpose
+       
+        private static int gamesCount = 0;
+        private static Stopwatch stopwatch = new Stopwatch();
+
+        /*
+        {
+            "Thuật ngữ": [
+                {
+                    "Tên": "Q-Value",
+                    "Mô tả": "Số liệu ước lượng cho hành động tại môi trường hiện tại",
+                    "Ví dụ": "Q(s,a) là giá trị dự đoán khi thực hiện hành động a tại trạng thái s"
+                },
+                {
+                    "Tên": "Learning Rate (alpha)",
+                    "Mô tả": "Điều chỉnh mức độ cập nhật giá trị Q sau mỗi bước học",
+                    "Ví dụ": "Nếu alpha = 0.1, tác nhân chỉ học 10% từ thông tin mới nhận được"
+                },
+                {
+                    "Tên": "Discount Factor (gamma)",
+                    "Mô tả": "Quyết định tầm quan trọng của phần thưởng trong tương lai so với phần thưởng hiện tại khi tính toán giá trị Q-Value cho một trạng thái hay hành động nào đó",
+                    "Ví dụ": "Nếu gamma = 0.9, tác nhân sẽ ưu tiên 90% phần thưởng tương lai và 10% phần thưởng hiện tại khi tính toán Q-Value. Gamma càng lớn (gần 1) thì các phần thưởng tương lai càng được đánh giá cao, tác nhân sẽ chú trọng nhiều hơn vào các lợi ích dài hạn."
+                },
+                {
+                    "Tên": "Exploration-Exploitation",
+                    "Mô tả": "Là một vấn đề cốt lõi trong Reinforcement Learning, liên quan đến việc cân bằng giữa khám phá (exploration) môi trường mới để thu thập thông tin và khai thác (exploitation) những kiến thức đã học được.",
+                    "Ví dụ": "Sử dụng Epsilon-Greedy Policy - nếu Epsilon nhỏ, tác nhân sẽ ít khám phá môi trường mới và chủ yếu khai thác những hành động có giá trị Q-Value cao đã biết. Ngược lại, nếu Epsilon lớn, tác nhân sẽ thường xuyên thăm dò ngẫu nhiên các hành động khác thay vì khai thác theo Q-Value."
+                },
+                {
+                    "Tên": "Discount Factor (gamma)",
+                    "Mô tả": "Quyết định tầm quan trọng của phần thưởng trong tương lai so với phần thưởng hiện tại khi tính toán giá trị Q-Value cho một trạng thái hay hành động nào đó",
+                    "Ví dụ": "Nếu gamma = 0.9, tác nhân sẽ ưu tiên 90% phần thưởng tương lai và 10% phần thưởng hiện tại khi tính toán Q-Value. Gamma càng lớn (gần 1) thì các phần thưởng tương lai càng được đánh giá cao, tác nhân sẽ chú trọng nhiều hơn vào các lợi ích dài hạn."
+                },
+                {
+                    "Tên": "Policy",
+                    "Mô tả": "Cách tác nhân chọn hành động trong mỗi trạng thái",
+                    "Ví dụ": "Sử dụng Q(s,a) để chọn hành động tối ưu a cho trạng thái s"
+                }
+            ]
+        }
+        */
         static void Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.Unicode;
@@ -87,106 +84,242 @@ namespace QLearningDemo
                 LoadQTable(QTABLE_MODEL_FILE);
             }
 
-            for (int i = 0; i < NBR_OF_TRAIN_INSTANCE; i++)
+            Task.Run(() =>
             {
-                var t = Task.Run(() =>
+                while (true)
                 {
-                    while (true)
+                    try
                     {
-                        int[,] env = new int[SIZE, SIZE];
-
-                        // Train the Q-learning agent if no saved Q-table is found
-                        // Initialize the game environment
-                        int catX, catY, mouseX, mouseY, dogX, dogY;
-
-                        // Reset the game environment
-                        Array.Clear(env, 0, env.Length);
-
-                        do
+                        if (NUMBER_OF_EVALUATE > 0)
                         {
-                            catX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                            catY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                            mouseX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                            mouseY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                            dogX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                            dogY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                        } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
-
-                        env[catX, catY] = (int)Animal.CAT;
-                        env[mouseX, mouseY] = (int)Animal.MOUSE;
-                        env[dogX, dogY] = (int)Animal.DOG;
-
-                        int currentX = catX, currentY = catY;
-                        bool isGameOver = false;
-                        int steps = 0; // Keep track of the number of steps
-
-                        List<Tuple<int, int>> listPreviousPosition = new List<Tuple<int, int>>();
-
-                        AgentAction? lastAction = null;
-
-                        while (!isGameOver && steps < MAX_STEPS)
-                        {
-                            listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
-
-                            // Choose an action based on the current Q-values
-                            MovedActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, greedyOnly: GREEDLY_ONLY_MODE);
-                                                        
-                            // Perform the action and get the new state
-                            int newX = currentX, newY = currentY;
-
-                            // Check if the game is over
-                            isGameOver = IsGameOver(newX, newY, env);
-
-                            // last step but not end game
-                            var lastStepsButNotSeeMouse = !isGameOver && (steps + 1 == MAX_STEPS);
-
-                            // Calculate the reward for the new state
-                            double reward = GetReward(newX, newY, env, lastStepsButNotSeeMouse, movedAction == null);
-
-                            if (movedAction == null)
-                            {
-                                // Update the Q-table
-                                double maxQNew = GetMaxQ(newX, newY, Q);
-                                double oldQ = Q[currentX, currentY, (int)lastAction];
-                                double newQ = oldQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxQNew - oldQ);
-                                Q[currentX, currentY, (int)lastAction] = newQ;
-                                break;
-                            }
-                            else
-                            {
-                                // Update the Q-table
-                                double maxQNew = GetMaxQ(newX, newY, Q);
-                                double oldQ = Q[currentX, currentY, (int)movedAction.Action];
-                                double newQ = oldQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxQNew - oldQ);
-                                Q[currentX, currentY, (int)movedAction.Action] = newQ;
-
-                                lastAction = movedAction.Action;
-                            }
-
-                            // Update the current state
-                            currentX = newX;
-                            currentY = newY;
-
-                            steps++;
+                            Console.WriteLine("\n=======================================================\n");
+                            Console.WriteLine($"{DateTime.Now:yyyy/MM/dd HH:mm:ss}");
+                            EvaluateAgent(NUMBER_OF_EVALUATE);
                         }
                     }
-                });
-            }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+
+                    Thread.Sleep(TimeSpan.FromSeconds(15));
+                }
+            });
 
             Task.Run(() =>
             {
                 while (true)
                 {
-                    Console.WriteLine("\n=======================================================\n");
-                    Console.WriteLine($"{DateTime.Now:yyyy/MM/dd HH:mm:ss}");
-                    SaveQTable(QTABLE_MODEL_FILE);
-                    EvaluateAgent(100);
-
-                    Thread.Sleep(TimeSpan.FromSeconds(30));
+                    DisplayGamesPerMinute();
+                    Thread.Sleep(TimeSpan.FromSeconds(10));
                 }
             });
 
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            for (int i = 0; i < NUMBER_OF_TRAIN_INSTANCE; i++)
+            {
+                var t = Task.Run(() =>
+                {
+                    int checkpoint = 0;
+                    while (true)
+                    {
+                        checkpoint++;
+
+                        if (checkpoint % 1_000_000 == 0)
+                        {
+                            SaveQTable(QTABLE_MODEL_FILE);
+                            checkpoint = 0;
+                        }
+
+                        var gameId = Guid.NewGuid();
+
+                        gamesCount++;
+
+                        //Console.WriteLine($"New game {DateTime.Now:HH:mm:ss fff}");
+
+                        int[,] env = new int[SIZE, SIZE];
+
+                        // Train the Q-learning agent if no saved Q-table is found
+                        // Initialize the game environment
+                        int catX = -1, catY = -1, mouseX = -1, mouseY = -1, dogX = -1, dogY = -1;
+
+                        InitPositions(ref catX, ref catY, ref mouseX, ref mouseY, ref dogX, ref dogY);
+
+                        // Reset the game environment
+                        Array.Clear(env, 0, env.Length);
+
+                        env[catX, catY] = (int)Animal.CAT;
+                        env[mouseX, mouseY] = (int)Animal.MOUSE;
+                        env[dogX, dogY] = (int)Animal.DOG;
+
+                        if (ENABLE_LOG_LEARNING)
+                        {
+                            Console.WriteLine($"Initial CAT [{catX},{catY}] - MOUSE [{mouseX},{mouseY}] - DOG [{dogX},{dogY}] - GreedyOnly ({(GREEDLY_ONLY_MODE_EVALUATE ? "true" : "false")})");
+                        }
+
+                        int currentX = catX, currentY = catY;
+                        bool isGameOver = false;
+                        int steps = 0; // Keep track of the number of steps
+
+                        string[,] tbl = new string[SIZE, SIZE];
+
+                        if (ENABLE_LOG_LEARNING)
+                        {
+                            Console.WriteLine();
+
+                            for (int i = 0; i < SIZE; i++)
+                            {
+                                for (int j = 0; j < SIZE; j++)
+                                {
+                                    tbl[i, j] = $"{i},{j}";
+                                }
+                            }
+
+                            tbl[catX, catY] = "C";
+                            tbl[mouseX, mouseY] = "M";
+                            tbl[dogX, dogY] = "D";
+                        }
+
+                        List<Tuple<int, int>> listPreviousPosition = new List<Tuple<int, int>>();
+
+                        //AgentAction? lastAction = null;
+                        bool caughtMouse = false;
+                        while (!isGameOver && steps < MAX_STEPS)
+                        {
+                            listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
+
+                            // Choose an action based on the current Q-values
+                            MovedActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, GREEDLY_ONLY_MODE_LEARNING);
+
+                            if (movedAction == null)
+                            {
+                                if (ENABLE_LOG_LEARNING)
+                                {
+                                    tbl[currentX, currentY] = "⭙";
+                                    Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\tGOT STUCK");
+                                }
+
+                                break;
+                            }
+                            else
+                            {
+                                // Perform the action and get the new state
+                                int newX = movedAction.X, newY = movedAction.Y;
+
+                                // Calculate the reward for the new state
+                                double reward = GetReward(newX, newY, env, ref caughtMouse);
+
+                                if (ENABLE_LOG_LEARNING)
+                                {
+                                    var epsilonInfo = string.Empty;
+                                    if (!GREEDLY_ONLY_MODE_LEARNING)
+                                    {
+                                        epsilonInfo = $"- Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}";
+                                    }
+
+                                    Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action} {newX},{newY}\t(Reward = {reward}) {epsilonInfo}");
+
+                                    var actionIcon = string.Empty;
+                                    if (movedAction == null)
+                                    {
+                                        actionIcon = "⭙";
+                                    }
+                                    else
+                                    {
+                                        switch (movedAction.Action)
+                                        {
+                                            case AgentAction.LEFT:
+                                                actionIcon = "←";
+                                                break;
+                                            case AgentAction.RIGHT:
+                                                actionIcon = "→";
+                                                break;
+                                            case AgentAction.UP:
+                                                actionIcon = "↑";
+                                                break;
+                                            case AgentAction.DOWN:
+                                                actionIcon = "↓";
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    }
+
+                                    if ($"{newX},{newY}" == $"{mouseX},{mouseY}")
+                                    {
+                                        tbl[newX, newY] = $"{actionIcon} M";
+                                    }
+                                    else if ($"{newX},{newY}" == $"{dogX},{dogY}")
+                                    {
+                                        tbl[newX, newY] = $"{actionIcon} D";
+                                    }
+                                    else
+                                    {
+                                        tbl[newX, newY] = $"{actionIcon}";
+                                    }
+                                }
+
+                                // Update the Q-table
+                                double maxQNew = GetMaxQ(newX, newY, Q);
+                                double oldQ = Q[currentX, currentY, (int)movedAction.Action];
+                                double newQ = oldQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxQNew - oldQ);
+                                Q[currentX, currentX, (int)movedAction.Action] = newQ;
+
+                                // Update the current state
+                                currentX = newX;
+                                currentY = newY;
+
+                                // Check if the game is over
+                                isGameOver = IsGameOver(newX, newY, env);
+                            }
+
+                            steps++;
+                        }
+
+                        if (ENABLE_LOG_LEARNING)
+                        {
+                            if (caughtMouse)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                            }
+
+                            ConsoleTableBuilder
+                                .From(ConvertToListOfLists(tbl))
+                                .ExportAndWriteLine();
+
+                            Console.ResetColor();
+
+                            Console.WriteLine("DONE");
+                        }
+
+                    }
+                });
+
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+            }
+
             Console.ReadLine();
+        }
+
+        static void DisplayGamesPerMinute()
+        {
+            stopwatch.Stop();
+            double elapsedTimeInSeconds = stopwatch.Elapsed.TotalSeconds;
+            double gamesPerMinute = gamesCount / (elapsedTimeInSeconds / 60);
+
+            Console.WriteLine();
+            Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+            Console.WriteLine($"Games per minute: {gamesPerMinute}");
+            Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+            Console.WriteLine();
+            Console.WriteLine();
+
+            gamesCount = 0;
+
+            stopwatch.Reset();
+            stopwatch.Start();
         }
 
         static Random rand = new Random();
@@ -199,6 +332,14 @@ namespace QLearningDemo
             public double RandomEpsilon { get; set; }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="prevPositions"></param>
+        /// <param name="x">current X</param>
+        /// <param name="y">current Y</param>
+        /// <param name="Q"></param>
+        /// <returns></returns>
         static MovedActionAndPositionEntry? ChooseAction(List<Tuple<int, int>> prevPositions, int x, int y, double[,,] Q, bool greedyOnly = false)
         {
             var blockAction = new List<AgentAction>();
@@ -254,7 +395,7 @@ namespace QLearningDemo
             }
             else
             {
-                prevPositions.Add(new Tuple<int, int>(tmpAction.X, tmpAction.Y));
+                //prevPositions.Add(new Tuple<int, int>(tmpAction.X, tmpAction.Y));
                 return new MovedActionAndPositionEntry
                 {
                     Action = tmpAction.Action,
@@ -425,22 +566,21 @@ namespace QLearningDemo
         }
 
         // Calculate the reward for the new state
-        static double GetReward(int x, int y, int[,] env, bool lastStepsButNotSeeMouse, bool canNotDoAction)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="x">next X</param>
+        /// <param name="y">next Y</param>
+        /// <param name="env"></param>
+        /// <param name="gotStuck"></param>
+        /// <returns></returns>
+        static double GetReward(int x, int y, int[,] env, ref bool caughtMouse)
         {
-            if (canNotDoAction)
-            {
-                return REWARD_CAN_NOT_DO_ACTION;
-            }
-
-            if (lastStepsButNotSeeMouse)
-            {
-                return REWARD_LAST_STEP_BUT_NOT_SEE_MOUSE;
-            }
-
             if (env[x, y] == (int)Animal.MOUSE)
             {
                 //Console.WriteLine("caught");
                 // Cat caught the mouse
+                caughtMouse = true;
                 return 10.0;
             }
             else if (env[x, y] == (int)Animal.DOG)
@@ -462,7 +602,7 @@ namespace QLearningDemo
         {
             double maxQ = double.MinValue;
 
-            for (int a = 0; a < NbrOfActions; a++)
+            for (int a = 0; a < NUMBER_OF_ACTION; a++)
             {
                 maxQ = Math.Max(maxQ, Q[x, y, a]);
             }
@@ -489,33 +629,15 @@ namespace QLearningDemo
                 Console.WriteLine("----------------------------");
                 // Reset the game environment
                 Array.Clear(env, 0, env.Length);
-                int catX, catY, mouseX, mouseY, dogX, dogY;
 
-                do
-                {
-                    catX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    catY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    mouseX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    mouseY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    dogX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    dogY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
-
-                //// test
-                //catX = 2;
-                //catY = 3;
-
-                //mouseX = 2;
-                //mouseY = 1;
-
-                //dogX = 1;
-                //dogY = 1;
-
+                int catX = -1, catY = -1, mouseX = -1, mouseY = -1, dogX = -1, dogY = -1;
+                InitPositions(ref catX, ref catY, ref mouseX, ref mouseY, ref dogX, ref dogY);
+                
                 env[catX, catY] = (int)Animal.CAT;
                 env[mouseX, mouseY] = (int)Animal.MOUSE;
                 env[dogX, dogY] = (int)Animal.DOG;
 
-                Console.WriteLine($"Initial CAT [{catX},{catY}] - MOUSE [{mouseX},{mouseY}] - DOG [{dogX},{dogY}] - GreedyOnly ({(GREEDLY_ONLY_MODE ? "true" : "false")})");
+                Console.WriteLine($"Initial CAT [{catX},{catY}] - MOUSE [{mouseX},{mouseY}] - DOG [{dogX},{dogY}] - GreedyOnly ({(GREEDLY_ONLY_MODE_EVALUATE ? "true" : "false")})");
 
                 int currentX = catX, currentY = catY;
                 bool isGameOver = false;
@@ -532,7 +654,7 @@ namespace QLearningDemo
                 {
                     for (int j = 0; j < SIZE; j++)
                     {
-                        tbl[i, j] = $"{j},{i}";
+                        tbl[i, j] = $"{i},{j}";
                     }
                 }
 
@@ -540,18 +662,18 @@ namespace QLearningDemo
                 tbl[mouseX, mouseY] = "M";
                 tbl[dogX, dogY] = "D";
 
+                bool caughtMouse = false;
+
                 while (!isGameOver && steps < MAX_STEPS)
                 {
                     listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
                     // Choose the action with the highest Q-value (no exploration)
-                    MovedActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, greedyOnly: GREEDLY_ONLY_MODE);
+                    MovedActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, GREEDLY_ONLY_MODE_EVALUATE);
 
                     if (movedAction == null)
                     {
-                        var currentReward = REWARD_CAN_NOT_DO_ACTION;
-                        reward += currentReward;
                         tbl[currentX, currentY] = "⭙";
-                        Console.WriteLine($"Evaluation {eval + 1}\t\tStep {steps + 1}\t\tGET STUCK\t\t-> (Reward = {REWARD_CAN_NOT_DO_ACTION})");
+                        Console.WriteLine($"Evaluation {eval + 1}\t\tStep {steps + 1}\t\tGOT STUCK");
                         break;
                     }
                     else
@@ -559,18 +681,18 @@ namespace QLearningDemo
                         // Perform the action and get the new state
                         int newX = movedAction.X, newY = movedAction.Y;
 
-                        // Check if the game is over
-                        isGameOver = IsGameOver(newX, newY, env);
-
-                        // last step but not end game
-                        var lastStepsButNotFoundMouse = !isGameOver && (steps + 1 == MAX_STEPS);
-
                         // Calculate the reward for the new state
-                        int currentReward = (int)GetReward(newX, newY, env, lastStepsButNotFoundMouse, movedAction == null);
+                        double currentReward = GetReward(newX, newY, env, ref caughtMouse);
 
                         reward += currentReward;
 
-                        Console.WriteLine($"Evaluation {eval + 1}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action} {newX},{newY}\t(Reward = {currentReward}) - Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}");
+                        var epsilonInfo = string.Empty;
+                        if (!GREEDLY_ONLY_MODE_EVALUATE)
+                        {
+                            epsilonInfo = $"- Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}";
+                        }
+
+                        Console.WriteLine($"Evaluation {eval + 1}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action} {newX},{newY}\t(Reward = {currentReward}) {epsilonInfo}");
                         
                         var actionIcon = string.Empty;
                         if (movedAction == null)
@@ -614,22 +736,27 @@ namespace QLearningDemo
                         // Update the current state
                         currentX = newX;
                         currentY = newY;
+
+                        // Check if the game is over
+                        isGameOver = IsGameOver(newX, newY, env);
+
                     }
 
                     steps++;
                 }
 
-                // If the maximum number of steps is reached, consider the episode as failed
-                if (steps == MAX_STEPS)
+                if (caughtMouse)
                 {
-                    reward = -10; // Assign a negative reward for failing the episode
+                    Console.ForegroundColor = ConsoleColor.Red;
                 }
-
+                
                 ConsoleTableBuilder
                     .From(ConvertToListOfLists(tbl))
                     .ExportAndWriteLine();
 
                 Console.WriteLine($"Evaluation {eval + 1}\t\t(Reward = {reward})");
+
+                Console.ResetColor();
 
                 totalReward += reward;
                 Console.WriteLine("DONE------------------------------------");
@@ -652,45 +779,52 @@ namespace QLearningDemo
             return BitConverter.ToUInt64(buffer, 0) % (maxValue - minValue + 1) + minValue;
         }
 
+        static object fileLock = new object(); // Object used for locking
         static void SaveQTable(string fileName)
         {
-            using (StreamWriter writer = new StreamWriter(fileName))
+            lock (fileLock)
             {
-                for (int x = 0; x < SIZE; x++)
+                using (StreamWriter writer = new StreamWriter(fileName))
                 {
-                    for (int y = 0; y < SIZE; y++)
+                    for (int x = 0; x < SIZE; x++)
                     {
-                        for (int a = 0; a < NbrOfActions; a++)
+                        for (int y = 0; y < SIZE; y++)
                         {
-                            writer.WriteLine(Q[x, y, a]);
+                            for (int a = 0; a < NUMBER_OF_ACTION; a++)
+                            {
+                                writer.WriteLine(Q[x, y, a]);
+                            }
                         }
                     }
                 }
+                Console.WriteLine("Saved Q table");
             }
-
-            Console.WriteLine("Saved Q table");
         }
 
         static void LoadQTable(string fileName)
         {
-            using (StreamReader reader = new StreamReader(fileName))
+            if (File.Exists(fileName))
             {
-                string line = reader.ReadToEnd();
-                string[] values = line.Split('\n');
-
-                int index = 0;
-                for (int x = 0; x < SIZE; x++)
+                using (StreamReader reader = new StreamReader(fileName))
                 {
-                    for (int y = 0; y < SIZE; y++)
+                    string line = reader.ReadToEnd();
+                    string[] values = line.Split('\n');
+
+                    int index = 0;
+                    for (int x = 0; x < SIZE; x++)
                     {
-                        for (int a = 0; a < NbrOfActions; a++)
+                        for (int y = 0; y < SIZE; y++)
                         {
-                            Q[x, y, a] = double.Parse(values[index++]);
+                            for (int a = 0; a < NUMBER_OF_ACTION; a++)
+                            {
+                                Q[x, y, a] = double.Parse(values[index++]);
+                            }
                         }
                     }
                 }
+
+                Console.WriteLine("Loaded Q table");
             }
-            Console.WriteLine("Loaded Q table");
         }
 
         static List<List<object>> ConvertToListOfLists(string[,] array2D)
@@ -708,6 +842,32 @@ namespace QLearningDemo
             }
 
             return listOfLists;
+        }
+
+        private static void InitPositions(ref int catX, ref int catY, ref int mouseX, ref int mouseY, ref int dogX, ref int dogY)
+        {
+            if (TRAIN_ONE_CASE)
+            {
+                // test case
+                catX = 0;
+                catY = 0;
+                mouseX = SIZE - 1;
+                mouseY = SIZE - 1;
+                dogX = SIZE - 2;
+                dogY = SIZE - 2;
+            }
+            else
+            {
+                do
+                {
+                    catX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                    catY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                    mouseX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                    mouseY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                    dogX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                    dogY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
+            }
         }
     }
 }
