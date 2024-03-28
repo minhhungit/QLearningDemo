@@ -81,7 +81,7 @@ namespace QLearningDemo
             // Load the saved Q-table (if it exists)
             if (File.Exists(QTABLE_MODEL_FILE))
             {
-                LoadQTable(QTABLE_MODEL_FILE);
+                LoadQTable();
             }
 
             Task.Run(() =>
@@ -118,21 +118,24 @@ namespace QLearningDemo
             stopwatch = new Stopwatch();
             stopwatch.Start();
 
+            if (NUMBER_OF_TRAIN_INSTANCE > 0)
+            {
+                Task.Run(() =>
+                {
+                    while (true)
+                    {
+                        SaveQTable();
+                        Thread.Sleep(TimeSpan.FromSeconds(10));
+                    }
+                });
+            }
+
             for (int i = 0; i < NUMBER_OF_TRAIN_INSTANCE; i++)
             {
                 var t = Task.Run(() =>
                 {
-                    int checkpoint = 0;
                     while (true)
                     {
-                        checkpoint++;
-
-                        if (checkpoint % 1_000_000 == 0)
-                        {
-                            SaveQTable(QTABLE_MODEL_FILE);
-                            checkpoint = 0;
-                        }
-
                         var gameId = Guid.NewGuid();
 
                         gamesCount++;
@@ -265,7 +268,7 @@ namespace QLearningDemo
                                 double maxQNew = GetMaxQ(newX, newY, Q);
                                 double oldQ = Q[currentX, currentY, (int)movedAction.Action];
                                 double newQ = oldQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxQNew - oldQ);
-                                Q[currentX, currentX, (int)movedAction.Action] = newQ;
+                                Q[currentX, currentY, (int)movedAction.Action] = newQ;
 
                                 // Update the current state
                                 currentX = newX;
@@ -780,11 +783,11 @@ namespace QLearningDemo
         }
 
         static object fileLock = new object(); // Object used for locking
-        static void SaveQTable(string fileName)
+        static void SaveQTable()
         {
             lock (fileLock)
             {
-                using (StreamWriter writer = new StreamWriter(fileName))
+                using (StreamWriter writer = new StreamWriter(QTABLE_MODEL_FILE))
                 {
                     for (int x = 0; x < SIZE; x++)
                     {
@@ -801,11 +804,11 @@ namespace QLearningDemo
             }
         }
 
-        static void LoadQTable(string fileName)
+        static void LoadQTable()
         {
-            if (File.Exists(fileName))
+            if (File.Exists(QTABLE_MODEL_FILE))
             {
-                using (StreamReader reader = new StreamReader(fileName))
+                using (StreamReader reader = new StreamReader(QTABLE_MODEL_FILE))
                 {
                     string line = reader.ReadToEnd();
                     string[] values = line.Split('\n');
