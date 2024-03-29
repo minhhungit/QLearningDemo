@@ -1,4 +1,8 @@
-﻿namespace QLearningDemo
+﻿using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace QLearningDemo
 {
     public class GameHelper
     {
@@ -6,17 +10,29 @@
 
         public static void InitPositions(ref int catX, ref int catY, ref int mouseX, ref int mouseY, ref int dogX, ref int dogY)
         {
-            var rand = new Random();
-
-            do
+            if (!GameConfig.TRAIN_ONE_CASE)
             {
-                catX = rand.Next(GameConfig.ENV_SIZE);
-                catY = rand.Next(GameConfig.ENV_SIZE);
-                mouseX = rand.Next(GameConfig.ENV_SIZE);
-                mouseY = rand.Next(GameConfig.ENV_SIZE);
-                dogX = rand.Next(GameConfig.ENV_SIZE);
-                dogY = rand.Next(GameConfig.ENV_SIZE);
-            } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
+                var rand = new Random();
+
+                do
+                {
+                    catX = rand.Next(GameConfig.ENV_SIZE);
+                    catY = rand.Next(GameConfig.ENV_SIZE);
+                    mouseX = rand.Next(GameConfig.ENV_SIZE);
+                    mouseY = rand.Next(GameConfig.ENV_SIZE);
+                    dogX = rand.Next(GameConfig.ENV_SIZE);
+                    dogY = rand.Next(GameConfig.ENV_SIZE);
+                } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
+            }
+            else
+            {
+                catX = 0;
+                catY = 0;
+                mouseX = GameConfig.ENV_SIZE - 1;
+                mouseY = GameConfig.ENV_SIZE - 1;
+                dogX = GameConfig.ENV_SIZE - 2;
+                dogY = GameConfig.ENV_SIZE - 2;
+            }
         }
 
         public static List<List<object>> ConvertToListOfLists(string[,] array2D)
@@ -38,7 +54,7 @@
 
         public static void DisplayGamesPerMinute(long nbrOfGames, double totalSeconds)
         {
-            Console.WriteLine($"Completed {nbrOfGames} in {totalSeconds} seconds");
+            Console.WriteLine($"Completed {nbrOfGames} games in {totalSeconds} seconds");
 
             double gamesPerMinute = (nbrOfGames / (totalSeconds / 60));
             if (gamesPerMinute < 0 )
@@ -50,13 +66,32 @@
             Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
         }
 
+        public static void SaveGameHistory(int catX, int catY, int mouseX, int mouseY, int dogX, int dogY, double reward)
+        {
+            return;
+            var folder = $"..\\..\\..\\Histories";
+            var fileName = $"{catX}{catY}-{mouseX}{mouseY}-{dogX}{dogY}.txt";
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+
+            File.AppendAllText(Path.Combine(folder, fileName), $"{reward}\n");
+        }
+
+        public static void SaveHighScoreLog(StringBuilder str)
+        {
+            var file = $"..\\..\\..\\high-score-log.txt";
+            File.AppendAllText(file, str.ToString());
+        }
+
         static object fileLock = new object(); // Object used for locking
         public static void SaveQTable()
         {
             lock (fileLock)
             {
                 // backup
-                if (!string.IsNullOrWhiteSpace(File.ReadAllText(GameConfig.QTABLE_MODEL_FILE)))
+                if (File.Exists(GameConfig.QTABLE_MODEL_FILE) && !string.IsNullOrWhiteSpace(File.ReadAllText(GameConfig.QTABLE_MODEL_FILE)))
                 {
                     File.Copy(GameConfig.QTABLE_MODEL_FILE, $"{GameConfig.QTABLE_MODEL_FILE}.bak", true);
                 }
@@ -65,6 +100,9 @@
                 using (StreamWriter writer = new StreamWriter(GameConfig.QTABLE_MODEL_FILE))
                 {
                     writer.WriteLine(GameConfig.TOTAL_NBR_OF_PLAYED_GAMES);
+                    writer.WriteLine($"{GameConfig.MAX_REWARD},{GameConfig.MAX_REWARD_AT}");
+
+                    writer.WriteLine("---");
 
                     for (int x = 0; x < GameConfig.ENV_SIZE; x++)
                     {
@@ -100,7 +138,12 @@
                     // first line is number of played games
                     GameConfig.TOTAL_NBR_OF_PLAYED_GAMES = long.Parse(values[0]);
 
-                    int index = 1;
+                    GameConfig.MAX_REWARD = double.Parse(values[1].Split(",")[0]);
+                    GameConfig.MAX_REWARD_AT = long.Parse(values[1].Split(",")[1]);
+
+                    // values[2] is "---"// below are Q-table values
+
+                    int index = 3;
                     for (int x = 0; x < GameConfig.ENV_SIZE; x++)
                     {
                         for (int y = 0; y < GameConfig.ENV_SIZE; y++)
@@ -116,6 +159,48 @@
                 Console.WriteLine("\n\n==========================");
                 Console.WriteLine("Loaded Q table");
                 Console.WriteLine("==========================\n\n");
+            }
+        }
+
+        static object avgRewardFileLock = new object(); // Object used for locking
+        public static void SaveAvgRewardPoints(AvgRewardPoint point)
+        {
+            return;
+            lock (avgRewardFileLock)
+            {
+                // Check if the file exists
+                if (File.Exists(GameConfig.AVG_REWARD_FILE))
+                {
+                    // Open the file in read mode
+                    using (StreamReader reader = new StreamReader(GameConfig.AVG_REWARD_FILE))
+                    {
+                        // Check if the file has content
+                        if (reader.Peek() >= 0)
+                        {
+                            // Read the first character of the file
+                            //char firstChar = (char)reader.Read();
+                            File.Copy(GameConfig.AVG_REWARD_FILE, $"{GameConfig.AVG_REWARD_FILE}.bak", true);
+                        }
+                        else
+                        {
+                            //Console.WriteLine("File is empty.");
+                            File.AppendAllText(GameConfig.AVG_REWARD_FILE, $"{nameof(AvgRewardPoint.AvgReward)},{nameof(AvgRewardPoint.Episode)}\n");
+                        }
+                    }
+                }
+                else
+                {
+                    //Console.WriteLine("File does not exist.");
+                    File.AppendAllText(GameConfig.AVG_REWARD_FILE, $"{nameof(AvgRewardPoint.AvgReward)},{nameof(AvgRewardPoint.Episode)}\n");
+                }
+
+
+                // save
+                File.AppendAllText(GameConfig.AVG_REWARD_FILE, $"{point.AvgReward},{point.Episode}\n");
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("!!! Got converged and saved file");
+                Console.ResetColor();
             }
         }
 
@@ -193,7 +278,6 @@
                 if (blockedActions.Contains(a))
                 {
                     continue;
-
                 }
                 else
                 {
@@ -364,6 +448,67 @@
         public static double GetDecayedEpsilon(long totalPlayedGames)
         {
             return Math.Max(GameConfig.MIN_EPSILON, (GameConfig.START_EPSILON - GameConfig.MIN_EPSILON) * Math.Exp(-GameConfig.DECAY_RATE * totalPlayedGames));
+        }
+
+        public static double CalculateMaxQValue()
+        {
+            double maxChange = 0;
+
+            // Calculate maximum change in Q-values
+            for (int i = 0; i < GameConfig.ENV_SIZE; i++)
+            {
+                for (int j = 0; j < GameConfig.ENV_SIZE; j++)
+                {
+                    for (int a = 0; a < GameConfig.NUMBER_OF_ACTION; a++)
+                    {
+                        // Calculate the change in Q-value for this state-action pair
+                        double qValueChange = Math.Abs(GameConfig.Q[i, j, a]);
+
+                        // Update maxChange if necessary
+                        if (qValueChange > maxChange)
+                        {
+                            maxChange = qValueChange;
+                        }
+                    }
+                }
+            }
+
+            return maxChange;
+        }
+
+        /// <summary>
+        /// preMaxValue = GameConfig.Q[i, j, a]
+        /// </summary>
+        /// <param name="preMaxValue"></param>
+        /// <returns></returns>
+        public static double CalculateMaxQValueChange(double [,,] prevQValues)
+        {
+            double maxChange = 0;
+
+            // Calculate maximum change in Q-values
+            for (int i = 0; i < GameConfig.ENV_SIZE; i++)
+            {
+                for (int j = 0; j < GameConfig.ENV_SIZE; j++)
+                {
+                    for (int a = 0; a < GameConfig.NUMBER_OF_ACTION; a++)
+                    {
+                        // Store the previous Q-value for comparison
+                        double prevQValue = prevQValues[i, j, a];
+
+
+                        // Calculate the change in Q-value for this state-action pair
+                        double qValueChange = Math.Abs(GameConfig.Q[i, j, a] - prevQValue);
+
+                        // Update maxChange if necessary
+                        if (qValueChange > maxChange)
+                        {
+                            maxChange = qValueChange;
+                        }
+                    }
+                }
+            }
+
+            return maxChange;
         }
     }
 }

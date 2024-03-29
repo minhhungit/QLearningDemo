@@ -5,16 +5,6 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PackageIcon></PackageIcon>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Content Include="icon.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="ConsoleTableExt" Version="3.2.0" />
-  </ItemGroup>
 
 </Project>

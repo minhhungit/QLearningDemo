@@ -5,9 +5,10 @@ namespace QLearningDemo
     {
         public static long TOTAL_NBR_OF_PLAYED_GAMES = 0;
         public const string QTABLE_MODEL_FILE = "..\\..\\..\\qtable.txt";
+        public const string AVG_REWARD_FILE = "..\\..\\..\\avgReward.csv";
 
         // Define the game environment
-        public const int ENV_SIZE = 4;
+        public const int ENV_SIZE = 15;
 
         public static int NUMBER_OF_ACTION = Enum.GetNames(typeof(AgentAction)).Length;
 
@@ -24,15 +25,20 @@ namespace QLearningDemo
         public const double DECAY_RATE = 0.00000001;   // epsilon will gradually decay so we do less exploring and more exploiting as Q-function improves
 
         //static int NUMBER_OF_TRAIN_INSTANCE = Environment.ProcessorCount * 5;
-        //public static long NUM_OF_EPISODES = 500_000;
-        public const int NUMBER_OF_EVALUATE = 100;
+        public static long NUM_OF_EPISODES = 100_000;
+        public const int NUMBER_OF_EVALUATE = 10;
 
-        public const int MAX_GAME_STEPS = 15; // Maximum number of steps of a game
+        public const int MAX_GAME_STEPS = int.MaxValue; // Maximum number of steps of a game
 
         public const bool GREEDLY_ONLY_MODE_LEARNING = false;
-        public const bool GREEDLY_ONLY_MODE_EVALUATE = true;
+        public const bool GREEDLY_ONLY_MODE_EVALUATE = false;
 
-        //public const bool TRAIN_ONE_CASE = false; // for testing purpose
+        //public const double CONVERGENCE_THRESHOLD = -0.000001; // Convergence threshold
+        //public static double PREV_MAX_CHANGE = double.MaxValue;
+
+        public const bool TRAIN_ONE_CASE = true; // for testing purpose
+        public static double MAX_REWARD = double.MinValue;
+        public static long MAX_REWARD_AT = 0;
 
         /*
         {
@@ -56,11 +62,6 @@ namespace QLearningDemo
                     "Tên": "Exploration-Exploitation",
                     "Mô tả": "Là một vấn đề cốt lõi trong Reinforcement Learning, liên quan đến việc cân bằng giữa khám phá (exploration) môi trường mới để thu thập thông tin và khai thác (exploitation) những kiến thức đã học được.",
                     "Ví dụ": "Sử dụng Epsilon-Greedy Policy - nếu Epsilon nhỏ, tác nhân sẽ ít khám phá môi trường mới và chủ yếu khai thác những hành động có giá trị Q-Value cao đã biết. Ngược lại, nếu Epsilon lớn, tác nhân sẽ thường xuyên thăm dò ngẫu nhiên các hành động khác thay vì khai thác theo Q-Value."
-                },
-                {
-                    "Tên": "Discount Factor (gamma)",
-                    "Mô tả": "Quyết định tầm quan trọng của phần thưởng trong tương lai so với phần thưởng hiện tại khi tính toán giá trị Q-Value cho một trạng thái hay hành động nào đó",
-                    "Ví dụ": "Nếu gamma = 0.9, tác nhân sẽ ưu tiên 90% phần thưởng tương lai và 10% phần thưởng hiện tại khi tính toán Q-Value. Gamma càng lớn (gần 1) thì các phần thưởng tương lai càng được đánh giá cao, tác nhân sẽ chú trọng nhiều hơn vào các lợi ích dài hạn."
                 },
                 {
                     "Tên": "Policy",

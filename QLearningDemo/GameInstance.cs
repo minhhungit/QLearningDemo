@@ -5,14 +5,20 @@ namespace QLearningDemo
     public class GameInstance
     {
         int[,] env;
-        private Random rand = new Random();
 
         public GameInstance()
         {
             env = new int[GameConfig.ENV_SIZE, GameConfig.ENV_SIZE];
         }
 
-        public void TrainAgent(long episode, bool enableLog = false)
+        /// <summary>
+        /// return reward
+        /// </summary>
+        /// <param name="episode"></param>
+        /// <param name="convergedPoint"></param>
+        /// <param name="enableLog"></param>
+        /// <returns></returns>
+        public double TrainAgent(long episode, bool enableLog = false)
         {
             var isGreedyOnly = GameConfig.GREEDLY_ONLY_MODE_LEARNING;
 
@@ -40,24 +46,23 @@ namespace QLearningDemo
             bool isGameOver = false;
             int steps = 0; // Keep track of the number of steps
 
+            // Store the current Q-values before processing the episode
+            double[,,] prevQValues = new double[GameConfig.ENV_SIZE, GameConfig.ENV_SIZE, GameConfig.NUMBER_OF_ACTION];
+            Array.Copy(GameConfig.Q, prevQValues, GameConfig.Q.Length);
+
             string[,] tbl = new string[GameConfig.ENV_SIZE, GameConfig.ENV_SIZE];
 
-            if (enableLog)
+            for (int i = 0; i < GameConfig.ENV_SIZE; i++)
             {
-                Console.WriteLine();
-
-                for (int i = 0; i < GameConfig.ENV_SIZE; i++)
+                for (int j = 0; j < GameConfig.ENV_SIZE; j++)
                 {
-                    for (int j = 0; j < GameConfig.ENV_SIZE; j++)
-                    {
-                        tbl[i, j] = $"{i},{j}";
-                    }
+                    tbl[i, j] = $"{i},{j}";
                 }
-
-                tbl[catX, catY] = "C";
-                tbl[mouseX, mouseY] = "M";
-                tbl[dogX, dogY] = "D";
             }
+
+            tbl[catX, catY] = "C";
+            tbl[mouseX, mouseY] = "M";
+            tbl[dogX, dogY] = "D";
 
             List<Tuple<int, int>> listPreviousPosition = new List<Tuple<int, int>>();
 
@@ -73,9 +78,10 @@ namespace QLearningDemo
 
                 if (nextAction == null)
                 {
+                    tbl[currentX, currentY] = "⭙";
+
                     if (enableLog)
                     {
-                        tbl[currentX, currentY] = "⭙";
                         Console.WriteLine($"Game {episode}\tStep {steps + 1}\tGOT STUCK");
                     }
 
@@ -100,44 +106,45 @@ namespace QLearningDemo
 
                         Console.WriteLine($"Game {episode}\tStep {steps + 1}\t{currentX},{currentY} {nextAction.Action,-5} {newX},{newY}\tReward {currentReward} {epsilonInfo}");
 
-                        var actionIcon = string.Empty;
-                        if (nextAction == null)
-                        {
-                            actionIcon = "⭙";
-                        }
-                        else
-                        {
-                            switch (nextAction.Action)
-                            {
-                                case AgentAction.LEFT:
-                                    actionIcon = "←";
-                                    break;
-                                case AgentAction.RIGHT:
-                                    actionIcon = "→";
-                                    break;
-                                case AgentAction.UP:
-                                    actionIcon = "↑";
-                                    break;
-                                case AgentAction.DOWN:
-                                    actionIcon = "↓";
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
+                    }
 
-                        if ($"{newX},{newY}" == $"{mouseX},{mouseY}")
+                    var actionIcon = string.Empty;
+                    if (nextAction == null)
+                    {
+                        actionIcon = "⭙";
+                    }
+                    else
+                    {
+                        switch (nextAction.Action)
                         {
-                            tbl[newX, newY] = $"{actionIcon} M";
+                            case AgentAction.LEFT:
+                                actionIcon = "←";
+                                break;
+                            case AgentAction.RIGHT:
+                                actionIcon = "→";
+                                break;
+                            case AgentAction.UP:
+                                actionIcon = "↑";
+                                break;
+                            case AgentAction.DOWN:
+                                actionIcon = "↓";
+                                break;
+                            default:
+                                break;
                         }
-                        else if ($"{newX},{newY}" == $"{dogX},{dogY}")
-                        {
-                            tbl[newX, newY] = $"{actionIcon} D";
-                        }
-                        else
-                        {
-                            tbl[newX, newY] = $"{actionIcon}";
-                        }
+                    }
+
+                    if ($"{newX},{newY}" == $"{mouseX},{mouseY}")
+                    {
+                        tbl[newX, newY] = $"{actionIcon} M";
+                    }
+                    else if ($"{newX},{newY}" == $"{dogX},{dogY}")
+                    {
+                        tbl[newX, newY] = $"{actionIcon} D";
+                    }
+                    else
+                    {
+                        tbl[newX, newY] = $"{actionIcon}";
                     }
 
                     // Update the Q-table
@@ -157,16 +164,41 @@ namespace QLearningDemo
                 steps++;
             }
 
+            GameConfig.TOTAL_NBR_OF_PLAYED_GAMES++;
+
+            var builder = ConsoleTableBuilder
+                    .From(GameHelper.ConvertToListOfLists(tbl));
+
+            var isHighScore = reward > GameConfig.MAX_REWARD;
+            if (isHighScore)
+            {
+                GameConfig.MAX_REWARD = reward;
+                GameConfig.MAX_REWARD_AT = GameConfig.TOTAL_NBR_OF_PLAYED_GAMES;
+
+                GameHelper.SaveQTable();
+
+                Console.WriteLine("NEW HIGH SCORE");
+                Console.WriteLine($"{GameConfig.MAX_REWARD} at {GameConfig.MAX_REWARD_AT}");
+                Fireworks.Congratulation();
+
+                // save log
+                var log = builder.Export();
+                log.AppendLine($"Reward {reward} at {GameConfig.TOTAL_NBR_OF_PLAYED_GAMES}");
+                log.AppendLine($"\n====================================\n");
+                GameHelper.SaveHighScoreLog(log);
+
+                enableLog = true;
+            }
+
             if (enableLog)
             {
+                // print grid on console
                 if (caughtMouse)
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                 }
 
-                ConsoleTableBuilder
-                    .From(GameHelper.ConvertToListOfLists(tbl))
-                    .ExportAndWriteLine();
+                builder.ExportAndWriteLine();
 
                 Console.ResetColor();
 
@@ -174,10 +206,34 @@ namespace QLearningDemo
                 Console.WriteLine();
                 Console.WriteLine();
             }
+
+            // Calculate change in Q-values
+            //double maxChange = GameHelper.CalculateMaxQValueChange(prevQValues);
+
+            // Check for convergence
+            //double absMaxChange = Math.Abs(GameConfig.PREV_MAX_CHANGE - maxChange);
+
+            //if (absMaxChange < GameConfig.CONVERGENCE_THRESHOLD)
+            //{
+            //    converged = true;
+            //    //convergedPoint = new ConvergedPoint
+            //    //{
+            //    //    //MaxChange = absMaxChange,
+            //    //    //AbsMaxChange = absMaxChange,
+            //    //    Reward = reward,
+            //    //    LearningEpisode = GameConfig.TOTAL_NBR_OF_PLAYED_GAMES
+            //    //};
+            //}
+
+            //GameConfig.PREV_MAX_CHANGE = maxChange;
+
+            //GameHelper.SaveGameHistory(catX, catY, mouseX, mouseY, dogX, dogY, reward);
+
+            return reward;
         }
 
         // Find the maximum Q-value for the new state
-        double GetMaxQ(int x, int y, double[,,] Q)
+        private double GetMaxQ(int x, int y, double[,,] Q)
         {
             double maxQ = double.MinValue;
 
