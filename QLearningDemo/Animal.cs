@@ -1,6 +1,6 @@
 ﻿namespace QLearningDemo
 {
-    enum Animal
+    public enum Animal
     {
         CAT = 1,
         MOUSE = 2,

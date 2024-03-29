@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace QLearningDemo
 {
-    class Program
+    partial class Program
     {
         const string QTABLE_MODEL_FILE = "..\\..\\..\\qtable.txt";
 
@@ -15,6 +15,7 @@ namespace QLearningDemo
 
         // Initialize the Q-table
         static double[,,] Q = new double[SIZE, SIZE, NUMBER_OF_ACTION];
+        static object _qTableLock = new object(); // Lock for thread-safe access to the Q-table
 
         // Define the Q-learning parameters
         static double LEARNING_RATE = 0.1;// Alpha
@@ -23,7 +24,7 @@ namespace QLearningDemo
         // Epsilon-greedy strategy (explore or exploit)
         const double EPSILON = 0.1;
 
-        const int NUMBER_OF_TRAIN_INSTANCE = 10;
+        const int NUMBER_OF_TRAIN_INSTANCE = 5;
         const int NUMBER_OF_EVALUATE = 50;
 
         static int MAX_STEPS = 10; // Maximum number of steps of a game
@@ -79,10 +80,7 @@ namespace QLearningDemo
             Console.OutputEncoding = System.Text.Encoding.Unicode;
 
             // Load the saved Q-table (if it exists)
-            if (File.Exists(QTABLE_MODEL_FILE))
-            {
-                LoadQTable();
-            }
+            LoadQTable();
 
             Task.Run(() =>
             {
@@ -130,182 +128,184 @@ namespace QLearningDemo
                 });
             }
 
-            for (int i = 0; i < NUMBER_OF_TRAIN_INSTANCE; i++)
+            while (true)
             {
-                var t = Task.Run(() =>
+                Task[] tasks = new Task[NUMBER_OF_TRAIN_INSTANCE];
+                for (int i = 0; i < NUMBER_OF_TRAIN_INSTANCE; i++)
                 {
-                    while (true)
-                    {
-                        var gameId = Guid.NewGuid();
+                    tasks[i] = Task.Factory.StartNew(RunGameInstance);
+                }
 
-                        gamesCount++;
+                // Wait for all instances to complete
+                Task.WaitAll(tasks);
+            }
+        }
 
-                        //Console.WriteLine($"New game {DateTime.Now:HH:mm:ss fff}");
+        static void RunGameInstance()
+        {
+            var gameId = Guid.NewGuid();
 
-                        int[,] env = new int[SIZE, SIZE];
+            gamesCount++;
 
-                        // Train the Q-learning agent if no saved Q-table is found
-                        // Initialize the game environment
-                        int catX = -1, catY = -1, mouseX = -1, mouseY = -1, dogX = -1, dogY = -1;
+            //Console.WriteLine($"New game {DateTime.Now:HH:mm:ss fff}");
 
-                        InitPositions(ref catX, ref catY, ref mouseX, ref mouseY, ref dogX, ref dogY);
+            int[,] env = new int[SIZE, SIZE];
 
-                        // Reset the game environment
-                        Array.Clear(env, 0, env.Length);
+            // Train the Q-learning agent if no saved Q-table is found
+            // Initialize the game environment
+            int catX = -1, catY = -1, mouseX = -1, mouseY = -1, dogX = -1, dogY = -1;
 
-                        env[catX, catY] = (int)Animal.CAT;
-                        env[mouseX, mouseY] = (int)Animal.MOUSE;
-                        env[dogX, dogY] = (int)Animal.DOG;
+            InitPositions(ref catX, ref catY, ref mouseX, ref mouseY, ref dogX, ref dogY);
 
-                        if (ENABLE_LOG_LEARNING)
-                        {
-                            Console.WriteLine($"Initial CAT [{catX},{catY}] - MOUSE [{mouseX},{mouseY}] - DOG [{dogX},{dogY}] - GreedyOnly ({(GREEDLY_ONLY_MODE_EVALUATE ? "true" : "false")})");
-                        }
+            // Reset the game environment
+            Array.Clear(env, 0, env.Length);
 
-                        int currentX = catX, currentY = catY;
-                        bool isGameOver = false;
-                        int steps = 0; // Keep track of the number of steps
+            env[catX, catY] = (int)Animal.CAT;
+            env[mouseX, mouseY] = (int)Animal.MOUSE;
+            env[dogX, dogY] = (int)Animal.DOG;
 
-                        string[,] tbl = new string[SIZE, SIZE];
-
-                        if (ENABLE_LOG_LEARNING)
-                        {
-                            Console.WriteLine();
-
-                            for (int i = 0; i < SIZE; i++)
-                            {
-                                for (int j = 0; j < SIZE; j++)
-                                {
-                                    tbl[i, j] = $"{i},{j}";
-                                }
-                            }
-
-                            tbl[catX, catY] = "C";
-                            tbl[mouseX, mouseY] = "M";
-                            tbl[dogX, dogY] = "D";
-                        }
-
-                        List<Tuple<int, int>> listPreviousPosition = new List<Tuple<int, int>>();
-
-                        //AgentAction? lastAction = null;
-                        bool caughtMouse = false;
-                        double reward = 0;
-                        while (!isGameOver && steps < MAX_STEPS)
-                        {
-                            listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
-
-                            // Choose an action based on the current Q-values
-                            MovedActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, GREEDLY_ONLY_MODE_LEARNING);
-
-                            if (movedAction == null)
-                            {
-                                if (ENABLE_LOG_LEARNING)
-                                {
-                                    tbl[currentX, currentY] = "⭙";
-                                    Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\tGOT STUCK");
-                                }
-
-                                break;
-                            }
-                            else
-                            {
-                                // Perform the action and get the new state
-                                int newX = movedAction.X, newY = movedAction.Y;
-
-                                // Calculate the reward for the new state
-                                reward = GetReward(newX, newY, env, ref caughtMouse);
-
-                                if (ENABLE_LOG_LEARNING)
-                                {
-                                    var epsilonInfo = string.Empty;
-                                    if (!GREEDLY_ONLY_MODE_LEARNING)
-                                    {
-                                        epsilonInfo = $"- Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}";
-                                    }
-
-                                    Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action,-7} {newX},{newY}\t(Reward = {reward}) {epsilonInfo}");
-
-                                    var actionIcon = string.Empty;
-                                    if (movedAction == null)
-                                    {
-                                        actionIcon = "⭙";
-                                    }
-                                    else
-                                    {
-                                        switch (movedAction.Action)
-                                        {
-                                            case AgentAction.LEFT:
-                                                actionIcon = "←";
-                                                break;
-                                            case AgentAction.RIGHT:
-                                                actionIcon = "→";
-                                                break;
-                                            case AgentAction.UP:
-                                                actionIcon = "↑";
-                                                break;
-                                            case AgentAction.DOWN:
-                                                actionIcon = "↓";
-                                                break;
-                                            default:
-                                                break;
-                                        }
-                                    }
-
-                                    if ($"{newX},{newY}" == $"{mouseX},{mouseY}")
-                                    {
-                                        tbl[newX, newY] = $"{actionIcon} M";
-                                    }
-                                    else if ($"{newX},{newY}" == $"{dogX},{dogY}")
-                                    {
-                                        tbl[newX, newY] = $"{actionIcon} D";
-                                    }
-                                    else
-                                    {
-                                        tbl[newX, newY] = $"{actionIcon}";
-                                    }
-                                }
-
-                                // Update the Q-table
-                                double maxQNew = GetMaxQ(newX, newY, Q);
-                                double oldQ = Q[currentX, currentY, (int)movedAction.Action];
-                                double newQ = oldQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxQNew - oldQ);
-                                Q[currentX, currentY, (int)movedAction.Action] = newQ;
-
-                                // Update the current state
-                                currentX = newX;
-                                currentY = newY;
-
-                                // Check if the game is over
-                                isGameOver = IsGameOver(newX, newY, env);
-                            }
-
-                            steps++;
-                        }
-
-                        if (ENABLE_LOG_LEARNING)
-                        {
-                            if (caughtMouse)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Red;
-                            }
-
-                            ConsoleTableBuilder
-                                .From(ConvertToListOfLists(tbl))
-                                .ExportAndWriteLine();
-
-                            Console.ResetColor();
-
-                            Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\t(Reward = {reward})");
-                            Console.WriteLine("DONE");
-                        }
-
-                    }
-                });
-
-                Thread.Sleep(TimeSpan.FromSeconds(2));
+            if (ENABLE_LOG_LEARNING)
+            {
+                Console.WriteLine($"Initial CAT [{catX},{catY}] - MOUSE [{mouseX},{mouseY}] - DOG [{dogX},{dogY}] - GreedyOnly ({(GREEDLY_ONLY_MODE_EVALUATE ? "true" : "false")})");
             }
 
-            Console.ReadLine();
+            int currentX = catX, currentY = catY;
+            bool isGameOver = false;
+            int steps = 0; // Keep track of the number of steps
+
+            string[,] tbl = new string[SIZE, SIZE];
+
+            if (ENABLE_LOG_LEARNING)
+            {
+                Console.WriteLine();
+
+                for (int i = 0; i < SIZE; i++)
+                {
+                    for (int j = 0; j < SIZE; j++)
+                    {
+                        tbl[i, j] = $"{i},{j}";
+                    }
+                }
+
+                tbl[catX, catY] = "C";
+                tbl[mouseX, mouseY] = "M";
+                tbl[dogX, dogY] = "D";
+            }
+
+            List<Tuple<int, int>> listPreviousPosition = new List<Tuple<int, int>>();
+
+            //AgentAction? lastAction = null;
+            bool caughtMouse = false;
+            double reward = 0;
+            while (!isGameOver && steps < MAX_STEPS)
+            {
+                listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
+
+                // Choose an action based on the current Q-values
+                NextActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, GREEDLY_ONLY_MODE_LEARNING);
+
+                if (movedAction == null)
+                {
+                    if (ENABLE_LOG_LEARNING)
+                    {
+                        tbl[currentX, currentY] = "⭙";
+                        Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\tGOT STUCK");
+                    }
+
+                    break;
+                }
+                else
+                {
+                    // Perform the action and get the new state
+                    int newX = movedAction.X, newY = movedAction.Y;
+
+                    // Calculate the reward for the new state
+                    reward = GetReward(newX, newY, env, ref caughtMouse);
+
+                    if (ENABLE_LOG_LEARNING)
+                    {
+                        var epsilonInfo = string.Empty;
+                        if (!GREEDLY_ONLY_MODE_LEARNING)
+                        {
+                            epsilonInfo = $"- Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}";
+                        }
+
+                        Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action,-7} {newX},{newY}\t(Reward = {reward}) {epsilonInfo}");
+
+                        var actionIcon = string.Empty;
+                        if (movedAction == null)
+                        {
+                            actionIcon = "⭙";
+                        }
+                        else
+                        {
+                            switch (movedAction.Action)
+                            {
+                                case AgentAction.LEFT:
+                                    actionIcon = "←";
+                                    break;
+                                case AgentAction.RIGHT:
+                                    actionIcon = "→";
+                                    break;
+                                case AgentAction.UP:
+                                    actionIcon = "↑";
+                                    break;
+                                case AgentAction.DOWN:
+                                    actionIcon = "↓";
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+
+                        if ($"{newX},{newY}" == $"{mouseX},{mouseY}")
+                        {
+                            tbl[newX, newY] = $"{actionIcon} M";
+                        }
+                        else if ($"{newX},{newY}" == $"{dogX},{dogY}")
+                        {
+                            tbl[newX, newY] = $"{actionIcon} D";
+                        }
+                        else
+                        {
+                            tbl[newX, newY] = $"{actionIcon}";
+                        }
+                    }
+
+                    // Update the Q-table
+                    double maxQNew = GetMaxQ(newX, newY, Q);
+                    double oldQ = Q[currentX, currentY, (int)movedAction.Action];
+                    double newQ = oldQ + LEARNING_RATE * (reward + DISCOUNT_FACTOR * maxQNew - oldQ);
+                    Q[currentX, currentY, (int)movedAction.Action] = newQ;
+
+                    // Update the current state
+                    currentX = newX;
+                    currentY = newY;
+
+                    // Check if the game is over
+                    isGameOver = IsGameOver(newX, newY, env);
+                }
+
+                steps++;
+            }
+
+            if (ENABLE_LOG_LEARNING)
+            {
+                if (caughtMouse)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                }
+
+                ConsoleTableBuilder
+                    .From(ConvertToListOfLists(tbl))
+                    .ExportAndWriteLine();
+
+                Console.ResetColor();
+
+                Console.WriteLine($"Game DONE - {gameId.ToString().Substring(0, 7)}\t\t(Reward = {reward})");
+                Console.WriteLine();
+                Console.WriteLine();
+            }
         }
 
         static void DisplayGamesPerMinute()
@@ -329,14 +329,6 @@ namespace QLearningDemo
 
         static Random rand = new Random();
 
-        class MovedActionAndPositionEntry
-        {
-            public AgentAction Action { get; set; }
-            public int X { get; set; }
-            public int Y { get; set; }
-            public double RandomEpsilon { get; set; }
-        }
-
         /// <summary>
         /// 
         /// </summary>
@@ -345,81 +337,73 @@ namespace QLearningDemo
         /// <param name="y">current Y</param>
         /// <param name="Q"></param>
         /// <returns></returns>
-        static MovedActionAndPositionEntry? ChooseAction(List<Tuple<int, int>> prevPositions, int x, int y, double[,,] Q, bool greedyOnly = false)
+        static NextActionAndPositionEntry? ChooseAction(List<Tuple<int, int>> prevPositions, int x, int y, double[,,] Q, bool greedyOnly = false)
         {
-            var blockAction = new List<AgentAction>();
-            if (x == 0)
+            lock (_qTableLock)
             {
-                blockAction.Add(AgentAction.LEFT);
-            }
-            if (y == 0)
-            {
-                blockAction.Add(AgentAction.UP);
-            }
-
-            if (x == SIZE - 1)
-            {
-                blockAction.Add(AgentAction.RIGHT);
-            }
-
-            if (y == SIZE - 1)
-            {
-                blockAction.Add(AgentAction.DOWN);
-            }
-
-            if (x == 0 && y == 0)
-            {
-                blockAction.Add(AgentAction.LEFT);
-                blockAction.Add(AgentAction.UP);
-            }
-
-            if (x == SIZE - 1 && y == 0)
-            {
-                blockAction.Add(AgentAction.UP);
-                blockAction.Add(AgentAction.RIGHT);
-            }
-
-            if (x == SIZE - 1 && y == SIZE - 1)
-            {
-                blockAction.Add(AgentAction.RIGHT);
-                blockAction.Add(AgentAction.DOWN);
-            }
-
-            if (x == 0 && y == SIZE - 1)
-            {
-                blockAction.Add(AgentAction.DOWN);
-                blockAction.Add(AgentAction.LEFT);
-            }
-
-            blockAction = blockAction.Distinct().ToList() ;
-            var tmpAction = TryChooseAction(blockAction, prevPositions, x, y, Q, greedyOnly);
-
-            if (tmpAction == null)
-            {
-                return null;
-            }
-            else
-            {
-                //prevPositions.Add(new Tuple<int, int>(tmpAction.X, tmpAction.Y));
-                return new MovedActionAndPositionEntry
+                var blockAction = new List<AgentAction>();
+                if (x == 0)
                 {
-                    Action = tmpAction.Action,
-                    X = tmpAction.X,
-                    Y = tmpAction.Y,
-                    RandomEpsilon = tmpAction.RandomEpsilon
-                };
-            }
-        }
+                    blockAction.Add(AgentAction.LEFT);
+                }
+                if (y == 0)
+                {
+                    blockAction.Add(AgentAction.UP);
+                }
 
-        // Choose an action based on the current Q-values
+                if (x == SIZE - 1)
+                {
+                    blockAction.Add(AgentAction.RIGHT);
+                }
 
-        class ActionAndPositionEntry
-        {
-            public AgentAction Action { get; set; }
-            public int X { get; set; }
-            public int Y { get; set; }
+                if (y == SIZE - 1)
+                {
+                    blockAction.Add(AgentAction.DOWN);
+                }
 
-            public double RandomEpsilon { get; set; }
+                if (x == 0 && y == 0)
+                {
+                    blockAction.Add(AgentAction.LEFT);
+                    blockAction.Add(AgentAction.UP);
+                }
+
+                if (x == SIZE - 1 && y == 0)
+                {
+                    blockAction.Add(AgentAction.UP);
+                    blockAction.Add(AgentAction.RIGHT);
+                }
+
+                if (x == SIZE - 1 && y == SIZE - 1)
+                {
+                    blockAction.Add(AgentAction.RIGHT);
+                    blockAction.Add(AgentAction.DOWN);
+                }
+
+                if (x == 0 && y == SIZE - 1)
+                {
+                    blockAction.Add(AgentAction.DOWN);
+                    blockAction.Add(AgentAction.LEFT);
+                }
+
+                blockAction = blockAction.Distinct().ToList();
+                var tmpAction = TryChooseAction(blockAction, prevPositions, x, y, Q, greedyOnly);
+
+                if (tmpAction == null)
+                {
+                    return null;
+                }
+                else
+                {
+                    //prevPositions.Add(new Tuple<int, int>(tmpAction.X, tmpAction.Y));
+                    return new NextActionAndPositionEntry
+                    {
+                        Action = tmpAction.Action,
+                        X = tmpAction.X,
+                        Y = tmpAction.Y,
+                        RandomEpsilon = tmpAction.RandomEpsilon
+                    };
+                }
+            }            
         }
 
         static ActionAndPositionEntry? TryChooseAction(List<AgentAction> blockedActions, List<Tuple<int, int>> prevPositions, int x, int y, double[,,] Q, bool greedyOnly = false)
@@ -435,7 +419,7 @@ namespace QLearningDemo
                 }
                 else
                 {
-                    FutureMove positionByMove = MoveAgent(x, y, a);
+                    NextMove positionByMove = MoveAgent(x, y, a);
                     if (!prevPositions.Contains(new Tuple<int, int>(positionByMove.X, positionByMove.Y)))
                     {
                         availableAction.Add(a);
@@ -457,7 +441,7 @@ namespace QLearningDemo
 
                 foreach (var a in availableAction)
                 {
-                    FutureMove futureMove = MoveAgent(x, y, a);
+                    NextMove futureMove = MoveAgent(x, y, a);
                     if (Q[x, y, (int)a] > maxQ)
                     {
                         maxQ = Q[x, y, (int)a];
@@ -487,7 +471,7 @@ namespace QLearningDemo
                 {
                     int randomIndex = rand.Next(0, availableAction.Count);
                     AgentAction randomAction = availableAction[randomIndex];
-                    FutureMove futureMove = MoveAgent(x, y, randomAction);
+                    NextMove futureMove = MoveAgent(x, y, randomAction);
                     
                     return new ActionAndPositionEntry
                     {
@@ -508,7 +492,7 @@ namespace QLearningDemo
 
                     foreach (var a in availableAction)
                     {
-                        FutureMove futureMove = MoveAgent(x, y, a);
+                        NextMove futureMove = MoveAgent(x, y, a);
 
                         if (Q[x, y, (int)a] > maxQ)
                         {
@@ -535,16 +519,7 @@ namespace QLearningDemo
             }
         }
 
-        // Perform the action and get the new state
-
-        class FutureMove
-        {
-            public int X { get; set; }
-            public int Y { get; set; }
-            public AgentAction Action { get; set; }
-        }
-
-        static FutureMove MoveAgent(int x, int y, AgentAction action)
+        static NextMove MoveAgent(int x, int y, AgentAction action)
         {
             switch (action)
             {
@@ -562,7 +537,7 @@ namespace QLearningDemo
                     break;
             }
 
-            return new FutureMove
+            return new NextMove
             {
                 Action = action,
                 X = x,
@@ -605,15 +580,17 @@ namespace QLearningDemo
         // Find the maximum Q-value for the new state
         static double GetMaxQ(int x, int y, double[,,] Q)
         {
-            double maxQ = double.MinValue;
-
-            for (int a = 0; a < NUMBER_OF_ACTION; a++)
+            lock (_qTableLock)
             {
-                maxQ = Math.Max(maxQ, Q[x, y, a]);
+                double maxQ = double.MinValue;
+
+                for (int a = 0; a < NUMBER_OF_ACTION; a++)
+                {
+                    maxQ = Math.Max(maxQ, Q[x, y, a]);
+                }
+
+                return maxQ;
             }
-
-            return maxQ;
-
         }
         // Check if the game is over
         static bool IsGameOver(int x, int y, int[,] env)
@@ -673,7 +650,7 @@ namespace QLearningDemo
                 {
                     listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
                     // Choose the action with the highest Q-value (no exploration)
-                    MovedActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, GREEDLY_ONLY_MODE_EVALUATE);
+                    NextActionAndPositionEntry? movedAction = ChooseAction(listPreviousPosition, currentX, currentY, Q, GREEDLY_ONLY_MODE_EVALUATE);
 
                     if (movedAction == null)
                     {
@@ -774,15 +751,15 @@ namespace QLearningDemo
             Console.WriteLine("=============================================================================================");
         }
 
-        private static readonly Random rnd = new Random();
-        private static ulong Get64BitRandom(ulong minValue, ulong maxValue)
-        {
-            // Get a random array of 8 bytes. 
-            // As an option, you could also use the cryptography namespace stuff to generate a random byte[8]
-            byte[] buffer = new byte[sizeof(ulong)];
-            rnd.NextBytes(buffer);
-            return BitConverter.ToUInt64(buffer, 0) % (maxValue - minValue + 1) + minValue;
-        }
+        //private static readonly Random rnd = new Random();
+        //private static ulong Get64BitRandom(ulong minValue, ulong maxValue)
+        //{
+        //    // Get a random array of 8 bytes. 
+        //    // As an option, you could also use the cryptography namespace stuff to generate a random byte[8]
+        //    byte[] buffer = new byte[sizeof(ulong)];
+        //    rnd.NextBytes(buffer);
+        //    return BitConverter.ToUInt64(buffer, 0) % (maxValue - minValue + 1) + minValue;
+        //}
 
         static object fileLock = new object(); // Object used for locking
         static void SaveQTable()
@@ -820,6 +797,11 @@ namespace QLearningDemo
                 using (StreamReader reader = new StreamReader(QTABLE_MODEL_FILE))
                 {
                     string line = reader.ReadToEnd();
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        return;
+                    }
+
                     string[] values = line.Split('\n');
 
                     int index = 0;
@@ -872,12 +854,12 @@ namespace QLearningDemo
             {
                 do
                 {
-                    catX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    catY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    mouseX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    mouseY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    dogX = (int)Get64BitRandom(0, (ulong)SIZE - 1);
-                    dogY = (int)Get64BitRandom(0, (ulong)SIZE - 1);
+                    catX = rand.Next(SIZE);
+                    catY = rand.Next(SIZE);
+                    mouseX = rand.Next(SIZE);
+                    mouseY = rand.Next(SIZE);
+                    dogX = rand.Next(SIZE);
+                    dogY = rand.Next(SIZE);
                 } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
             }
         }

@@ -1,6 +1,6 @@
 ﻿namespace QLearningDemo
 {
-    enum AgentAction
+    public enum AgentAction
     {
         LEFT = 0,
         RIGHT = 1,
