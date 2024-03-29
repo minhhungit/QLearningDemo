@@ -17,8 +17,8 @@ namespace QLearningDemo
         static double[,,] Q = new double[SIZE, SIZE, NUMBER_OF_ACTION];
 
         // Define the Q-learning parameters
-        static double LEARNING_RATE = 0.1;
-        static double DISCOUNT_FACTOR = 0.9;
+        static double LEARNING_RATE = 0.1;// Alpha
+        static double DISCOUNT_FACTOR = 0.9;// Gamma
 
         // Epsilon-greedy strategy (explore or exploit)
         const double EPSILON = 0.1;
@@ -189,6 +189,7 @@ namespace QLearningDemo
 
                         //AgentAction? lastAction = null;
                         bool caughtMouse = false;
+                        double reward = 0;
                         while (!isGameOver && steps < MAX_STEPS)
                         {
                             listPreviousPosition.Add(new Tuple<int, int>(currentX, currentY));
@@ -212,7 +213,7 @@ namespace QLearningDemo
                                 int newX = movedAction.X, newY = movedAction.Y;
 
                                 // Calculate the reward for the new state
-                                double reward = GetReward(newX, newY, env, ref caughtMouse);
+                                reward = GetReward(newX, newY, env, ref caughtMouse);
 
                                 if (ENABLE_LOG_LEARNING)
                                 {
@@ -222,7 +223,7 @@ namespace QLearningDemo
                                         epsilonInfo = $"- Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}";
                                     }
 
-                                    Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action} {newX},{newY}\t(Reward = {reward}) {epsilonInfo}");
+                                    Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action,-7} {newX},{newY}\t(Reward = {reward}) {epsilonInfo}");
 
                                     var actionIcon = string.Empty;
                                     if (movedAction == null)
@@ -294,6 +295,7 @@ namespace QLearningDemo
 
                             Console.ResetColor();
 
+                            Console.WriteLine($"Game {gameId.ToString().Substring(0, 7)}\t\t(Reward = {reward})");
                             Console.WriteLine("DONE");
                         }
 
@@ -695,7 +697,7 @@ namespace QLearningDemo
                             epsilonInfo = $"- Epsilon {movedAction.RandomEpsilon} {(movedAction.RandomEpsilon < EPSILON ? "RANDOM" : "BEST")}";
                         }
 
-                        Console.WriteLine($"Evaluation {eval + 1}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action} {newX},{newY}\t(Reward = {currentReward}) {epsilonInfo}");
+                        Console.WriteLine($"Evaluation {eval + 1}\t\tStep {steps + 1}\t\t{currentX},{currentY} {movedAction.Action,-5} {newX},{newY}\t(Reward = {currentReward}) {epsilonInfo}");
                         
                         var actionIcon = string.Empty;
                         if (movedAction == null)
@@ -787,6 +789,13 @@ namespace QLearningDemo
         {
             lock (fileLock)
             {
+                // backup
+                if (!string.IsNullOrWhiteSpace(File.ReadAllText(QTABLE_MODEL_FILE)))
+                {
+                    File.Copy(QTABLE_MODEL_FILE, $"{QTABLE_MODEL_FILE}.bak", true);
+                }                
+
+                // save
                 using (StreamWriter writer = new StreamWriter(QTABLE_MODEL_FILE))
                 {
                     for (int x = 0; x < SIZE; x++)
