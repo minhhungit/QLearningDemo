@@ -9,7 +9,7 @@ namespace QLearningDemo
         const string QTABLE_MODEL_FILE = "..\\..\\..\\qtable.txt";
 
         // Define the game environment
-        static int SIZE = 4;
+        const int SIZE = 4;
 
         static int NUMBER_OF_ACTION = Enum.GetNames(typeof(AgentAction)).Length;
 
@@ -18,26 +18,28 @@ namespace QLearningDemo
         static object _qTableLock = new object(); // Lock for thread-safe access to the Q-table
 
         // Define the Q-learning parameters
-        static double LEARNING_RATE = 0.1;// Alpha
-        static double DISCOUNT_FACTOR = 0.9;// Gamma
+        const double LEARNING_RATE = 0.1;// Alpha
+        const double DISCOUNT_FACTOR = 0.9;// Gamma
 
         // Epsilon-greedy strategy (explore or exploit)
         const double EPSILON = 0.1;
 
-        const int NUMBER_OF_TRAIN_INSTANCE = 5;
+        static int NUMBER_OF_TRAIN_INSTANCE = Environment.ProcessorCount * 5;
         const int NUMBER_OF_EVALUATE = 50;
 
-        static int MAX_STEPS = 10; // Maximum number of steps of a game
+        const int MAX_STEPS = 10; // Maximum number of steps of a game
 
         const bool ENABLE_LOG_LEARNING = false;
 
-        static bool GREEDLY_ONLY_MODE_LEARNING = false;
-        static bool GREEDLY_ONLY_MODE_EVALUATE = true;
+        const bool GREEDLY_ONLY_MODE_LEARNING = false;
+        const bool GREEDLY_ONLY_MODE_EVALUATE = true;
         
         const bool TRAIN_ONE_CASE = false; // for testing purpose
        
-        private static int gamesCount = 0;
-        private static Stopwatch stopwatch = new Stopwatch();
+        static int _gamesCount = 0;
+        static object _gamesCountLock = new object();
+
+        static Stopwatch _stopwatch = new Stopwatch();
 
         /*
         {
@@ -113,8 +115,8 @@ namespace QLearningDemo
                 }
             });
 
-            stopwatch = new Stopwatch();
-            stopwatch.Start();
+            _stopwatch = new Stopwatch();
+            _stopwatch.Start();
 
             if (NUMBER_OF_TRAIN_INSTANCE > 0)
             {
@@ -145,7 +147,7 @@ namespace QLearningDemo
         {
             var gameId = Guid.NewGuid();
 
-            gamesCount++;
+            _gamesCount++;
 
             //Console.WriteLine($"New game {DateTime.Now:HH:mm:ss fff}");
 
@@ -310,21 +312,24 @@ namespace QLearningDemo
 
         static void DisplayGamesPerMinute()
         {
-            stopwatch.Stop();
-            double elapsedTimeInSeconds = stopwatch.Elapsed.TotalSeconds;
-            double gamesPerMinute = gamesCount / (elapsedTimeInSeconds / 60);
+            lock (_gamesCountLock)
+            {
+                _stopwatch.Stop();
+                double elapsedTimeInSeconds = _stopwatch.Elapsed.TotalSeconds;
+                double gamesPerMinute = _gamesCount / (elapsedTimeInSeconds / 60);
 
-            Console.WriteLine();
-            Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-            Console.WriteLine($"Games per minute: {gamesPerMinute}");
-            Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-            Console.WriteLine();
-            Console.WriteLine();
+                Console.WriteLine();
+                Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+                Console.WriteLine($"Games per minute: {gamesPerMinute}");
+                Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+                Console.WriteLine();
+                Console.WriteLine();
 
-            gamesCount = 0;
+                _gamesCount = 0;
 
-            stopwatch.Reset();
-            stopwatch.Start();
+                _stopwatch.Reset();
+                _stopwatch.Start();
+            }
         }
 
         static Random rand = new Random();
