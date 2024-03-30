@@ -1,17 +1,19 @@
-﻿namespace DeepQLearning
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace DeepQLearning
 {
     public class QNetwork
     {
         private double[] weights;
         private int numInputs;
         private int numActions;
-        private Random random;
+        private Random rand;
 
         public QNetwork(int numInputs, int numActions)
         {
             this.numInputs = numInputs;
             this.numActions = numActions;
-            random = new Random();
+            rand = new Random();
             InitializeWeights();
         }
 
@@ -21,43 +23,133 @@
             weights = new double[(numInputs + 1) * numActions];
             for (int i = 0; i < weights.Length; i++)
             {
-                weights[i] = random.NextDouble() * 2 - 1; // Random value between -1 and 1
+                weights[i] = rand.NextDouble() * 2 - 1; // Random value between -1 and 1
             }
         }
 
-        public int EpsilonGreedyAction(double[] state, double epsilon)
+        public AgentAction? EpsilonGreedyAction(List<Tuple<int, int>> prevPositions, int[] state, double epsilon)
         {
-            if (random.NextDouble() < epsilon)
+            if (rand.NextDouble() < epsilon)
             {
                 // Explore: Choose a random action
-                return random.Next(numActions);
+
+                var x = state[0]; // catX
+                var y = state[1]; // catY
+
+                var availableActions = GetAvailableAction(prevPositions, x, y);
+
+                if (availableActions.Count() == 0)
+                {
+                    return null;
+                }
+
+                int randomIndex = rand.Next(0, availableActions.Count);
+                return availableActions[randomIndex];
             }
             else
             {
                 // Exploit: Choose the action with the highest Q-value
-                return GreedyAction(state);
+                return GreedyAction(prevPositions, state);
             }
         }
 
-        public int GreedyAction(double[] state)
+        public List<AgentAction> GetAvailableAction(List<Tuple<int, int>> prevPositions, int x, int y)
         {
-            double[] qValues = GetQValues(state);
-            int bestAction = 0;
-            double maxQValue = qValues[0];
-
-            for (int i = 1; i < numActions; i++)
+            var blockAction = new List<AgentAction>();
+            if (x == 0)
             {
-                if (qValues[i] > maxQValue)
+                blockAction.Add(AgentAction.LEFT);
+            }
+            if (y == 0)
+            {
+                blockAction.Add(AgentAction.UP);
+            }
+
+            if (x == GameConfig.ENV_SIZE - 1)
+            {
+                blockAction.Add(AgentAction.RIGHT);
+            }
+
+            if (y == GameConfig.ENV_SIZE - 1)
+            {
+                blockAction.Add(AgentAction.DOWN);
+            }
+
+            if (x == 0 && y == 0)
+            {
+                blockAction.Add(AgentAction.LEFT);
+                blockAction.Add(AgentAction.UP);
+            }
+
+            if (x == GameConfig.ENV_SIZE - 1 && y == 0)
+            {
+                blockAction.Add(AgentAction.UP);
+                blockAction.Add(AgentAction.RIGHT);
+            }
+
+            if (x == GameConfig.ENV_SIZE - 1 && y == GameConfig.ENV_SIZE - 1)
+            {
+                blockAction.Add(AgentAction.RIGHT);
+                blockAction.Add(AgentAction.DOWN);
+            }
+
+            if (x == 0 && y == GameConfig.ENV_SIZE - 1)
+            {
+                blockAction.Add(AgentAction.DOWN);
+                blockAction.Add(AgentAction.LEFT);
+            }
+
+            blockAction = blockAction.Distinct().ToList();
+
+            var availableActions = new List<AgentAction>();
+            foreach (AgentAction a in (AgentAction[])Enum.GetValues(typeof(AgentAction)))
+            {
+                if (blockAction.Contains(a))
                 {
-                    maxQValue = qValues[i];
-                    bestAction = i;
+                    continue;
+                }
+                else
+                {
+                    NextAction positionByMove = GameHelper.MoveAgent(x, y, a);
+                    if (!prevPositions.Contains(new Tuple<int, int>(positionByMove.X, positionByMove.Y)))
+                    {
+                        availableActions.Add(a);
+                    }
                 }
             }
 
-            return bestAction;
+            return availableActions;
         }
 
-        public double[] GetQValues(double[] state)
+        public AgentAction? GreedyAction(List<Tuple<int, int>> prevPositions, int[] state)
+        {
+            int x = state[0];
+            int y = state[1];
+            
+            var availableActions = GetAvailableAction(prevPositions, x, y);
+
+            if (availableActions.Count == 0)
+            {
+                return null;
+            }
+
+            double[] qValues = GetQValues(state);
+            int bestAction = -1;
+            double maxQValue = double.MinValue;
+
+            foreach (var a in availableActions)
+            {
+                if (qValues[(int)a] > maxQValue) // @TODO: NEED TO CHECK 
+                {
+                    maxQValue = qValues[(int)a];
+                    bestAction = (int)a;
+                }
+            }
+
+            return (AgentAction)bestAction;
+        }
+
+        public double[] GetQValues(int[] state)
         {
             double[] qValues = new double[numActions];
 
@@ -84,20 +176,20 @@
                 double[] currentQValues = GetQValues(experience.State);
                 if (experience.Done)
                 {
-                    targetQValues[experience.Action] = experience.Reward;
+                    targetQValues[(int)experience.Action] = experience.Reward;
                 }
                 else
                 {
                     double maxNextQValue = targetNetwork.GetQValues(experience.NextState).Max();
-                    targetQValues[experience.Action] = experience.Reward + gamma * maxNextQValue;
+                    targetQValues[(int)experience.Action] = experience.Reward + gamma * maxNextQValue;
                 }
 
                 for (int input = 0; input < numInputs; input++)
                 {
-                    double delta = targetQValues[experience.Action] - currentQValues[experience.Action];
-                    weights[input * numActions + experience.Action] += learningRate * delta * experience.State[input];
+                    double delta = targetQValues[(int)experience.Action] - currentQValues[(int)experience.Action];
+                    weights[input * numActions + (int)experience.Action] += learningRate * delta * experience.State[input];
                 }
-                weights[numInputs * numActions + experience.Action] += learningRate * (targetQValues[experience.Action] - currentQValues[experience.Action]);
+                weights[numInputs * numActions + (int)experience.Action] += learningRate * (targetQValues[(int)experience.Action] - currentQValues[(int)experience.Action]);
             }
         }
 

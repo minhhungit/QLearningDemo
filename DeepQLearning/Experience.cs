@@ -1,11 +1,13 @@
-﻿namespace DeepQLearning
+﻿using System;
+
+namespace DeepQLearning
 {
     public class Experience
     {
-        public double[] State { get; set; }
-        public int Action { get; set; }
+        public int[] State { get; set; }
+        public AgentAction Action { get; set; }
         public double Reward { get; set; }
-        public double[] NextState { get; set; }
+        public int[] NextState { get; set; }
         public bool Done { get; set; }
     }
 }

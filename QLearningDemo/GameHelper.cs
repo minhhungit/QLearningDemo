@@ -265,13 +265,11 @@ namespace QLearningDemo
 
             blockAction = blockAction.Distinct().ToList();
             return TryChooseAction(blockAction, prevPositions, x, y, GameConfig.Q, greedyOnly);
-
-            
         }
 
         private static NextAction? TryChooseAction(List<AgentAction> blockedActions, List<Tuple<int, int>> prevPositions, int x, int y, double[,,] Q, bool greedyOnly = false)
         {
-            var availableAction = new List<AgentAction>();
+            var availableActions = new List<AgentAction>();
             foreach (AgentAction a in (AgentAction[])Enum.GetValues(typeof(AgentAction)))
             {
 
@@ -284,12 +282,12 @@ namespace QLearningDemo
                     NextAction positionByMove = MoveAgent(x, y, a);
                     if (!prevPositions.Contains(new Tuple<int, int>(positionByMove.X, positionByMove.Y)))
                     {
-                        availableAction.Add(a);
+                        availableActions.Add(a);
                     }
                 }
             }
 
-            if (availableAction.Count() == 0)
+            if (availableActions.Count() == 0)
             {
                 return null;
             }
@@ -301,7 +299,7 @@ namespace QLearningDemo
                 AgentAction? bestAction = null;
                 int newX = x, newY = y;
 
-                foreach (var a in availableAction)
+                foreach (var a in availableActions)
                 {
                     NextAction futureMove = MoveAgent(x, y, a);
                     if (Q[x, y, (int)a] > maxQ)
@@ -335,8 +333,8 @@ namespace QLearningDemo
 
                 if (ranEpsilon < epsilon)
                 {
-                    int randomIndex = _rand.Next(0, availableAction.Count);
-                    AgentAction randomAction = availableAction[randomIndex];
+                    int randomIndex = _rand.Next(0, availableActions.Count);
+                    AgentAction randomAction = availableActions[randomIndex];
                     NextAction futureMove = MoveAgent(x, y, randomAction);
 
                     return new NextAction
@@ -357,7 +355,7 @@ namespace QLearningDemo
                     var newX = x;
                     var newY = y;
 
-                    foreach (var a in availableAction)
+                    foreach (var a in availableActions)
                     {
                         NextAction futureMove = MoveAgent(x, y, a);
 

@@ -4,15 +4,14 @@
     {
         static void Main(string[] args)
         {
-            const int gridSize = 4;
-            const int numActions = 4; // left, right, up, down
-            const int numEpisodes = 1000;
+            int numActions = Enum.GetNames(typeof(AgentAction)).Length; // left, right, up, down
+            const int numEpisodes = 100_000;
             const int batchSize = 32;
 
-            Env env = new Env(gridSize);
+            Env env = new Env(GameConfig.ENV_SIZE);
             QNetwork qNetwork = new QNetwork(6, numActions); // 6 input nodes for (cat_x, cat_y, mouse_x, mouse_y, dog_x, dog_y)
             QNetwork targetNetwork = new QNetwork(6, numActions);
-            ReplayMemory memory = new ReplayMemory(10000);
+            ReplayMemory memory = new ReplayMemory(100_000);
 
             double epsilon = 1.0; // Exploration rate
             double epsilonDecay = 0.995;
@@ -24,24 +23,49 @@
             for (int episode = 0; episode < numEpisodes; episode++)
             {
                 env.Reset();
-                double[] state = env.GetStateVector();
+                int[] state = env.GetStateVector();
                 bool done = false;
+
+                List<Tuple<int, int>> prevPositions = new List<Tuple<int, int>>
+                {
+                    new Tuple<int, int>(state[0], state[1])
+                };
 
                 while (!done)
                 {
-                    int action = qNetwork.EpsilonGreedyAction(state, epsilon);
-                    double[] nextState;
-                    double reward;
-                    done = env.Step(action, out nextState, out reward);
+                    AgentAction? action = qNetwork.EpsilonGreedyAction(prevPositions, state, epsilon);
 
-                    memory.AddExperience(state, action, reward, nextState, done);
-
-                    if (memory.Count >= batchSize)
+                    if (action == null)
                     {
-                        qNetwork.TrainBatch(memory.SampleBatch(batchSize), targetNetwork, gamma, learningRate);
-                    }
+                        //tbl[currentX, currentY] = "⭙";
 
-                    state = nextState;
+                        //if (enableLog)
+                        //{
+                        //    Console.WriteLine($"Game {episode}\tStep {steps + 1}\tGOT STUCK");
+                        //}
+
+                        break;
+                    }
+                    else
+                    {
+                        int[] nextState;
+                        double reward;
+                        done = env.Step((AgentAction)action, out nextState, out reward);
+                        prevPositions.Add(new Tuple<int, int>(nextState[0], nextState[1]));
+
+                        if ((int)action == -1)
+                        {
+
+                        }
+                        memory.AddExperience(state, (AgentAction)action, reward, nextState, done);
+
+                        if (memory.Count >= batchSize)
+                        {
+                            qNetwork.TrainBatch(memory.SampleBatch(batchSize), targetNetwork, gamma, learningRate);
+                        }
+
+                        state = nextState;
+                    }                    
                 }
 
                 if (episode % 10 == 0)
@@ -53,25 +77,52 @@
             }
 
             // Evaluate the trained network
-            double totalReward = 0.0;
+            double avgReward = 0.0;
             for (int episode = 0; episode < 100; episode++)
             {
                 env.Reset();
-                double[] state = env.GetStateVector();
+                int[] state = env.GetStateVector();
                 bool done = false;
+                List<Tuple<int, int>> prevPositions = new List<Tuple<int, int>>
+                {
+                    new Tuple<int, int>(state[0], state[1])
+                };
+
+                double reward = 0;
 
                 while (!done)
                 {
-                    int action = qNetwork.GreedyAction(state);
-                    double[] nextState;
-                    double reward;
-                    done = env.Step(action, out nextState, out reward);
-                    totalReward += reward;
-                    state = nextState;
+                    AgentAction? action = qNetwork.GreedyAction(prevPositions, state);
+
+                    if (action == null)
+                    {
+                        //tbl[currentX, currentY] = "⭙";
+
+                        //if (enableLog)
+                        //{
+                        //    Console.WriteLine($"Game {episode}\tStep {steps + 1}\tGOT STUCK");
+                        //}
+
+                        break;
+                    }
+                    else
+                    {
+                        int[] nextState;
+                        double stepReward;
+                        done = env.Step((AgentAction)action, out nextState, out stepReward);
+                        prevPositions.Add(new Tuple<int, int>(nextState[0], nextState[1]));
+
+                        reward += stepReward;
+                        state = nextState;
+                    }
                 }
+
+                Console.WriteLine($"episode {episode + 1} reward {reward}");
+
+                avgReward += reward;
             }
 
-            Console.WriteLine($"Average reward: {totalReward / 100}");
+            Console.WriteLine($"Average reward: {avgReward / 100}");
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace DeepQLearning
+﻿using System;
+
+namespace DeepQLearning
 {
     public class ReplayMemory
     {
@@ -18,7 +20,7 @@
             get { return memory.Count; }
         }
 
-        public void AddExperience(double[] state, int action, double reward, double[] nextState, bool done)
+        public void AddExperience(int[] state, AgentAction action, double reward, int[] nextState, bool done)
         {
             memory.Add(new Experience
             {
