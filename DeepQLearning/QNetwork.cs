@@ -197,5 +197,58 @@ namespace DeepQLearning
         {
             other.weights.CopyTo(weights, 0);
         }
+
+        public void SaveModel(string filePath)
+        {
+            //using (FileStream fs = new FileStream(filePath, FileMode.Create))
+            //{
+            //    using (BinaryWriter writer = new BinaryWriter(fs))
+            //    {
+            //        writer.Write(weights.Length);
+            //        foreach (double weight in weights)
+            //        {
+            //            writer.Write(weight);
+            //        }
+            //    }
+            //}
+
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine(weights.Length);
+                for (int i = 0; i < weights.Length; i++)
+                {
+                    writer.WriteLine(weights[i]);
+                }
+            }
+        }
+
+        public void LoadModel(string filePath)
+        {
+            //using (FileStream fs = new FileStream(filePath, FileMode.Open))
+            //{
+            //    using (BinaryReader reader = new BinaryReader(fs))
+            //    {
+            //        int weightsCount = reader.ReadInt32();
+            //        weights = new double[weightsCount];
+            //        for (int i = 0; i < weightsCount; i++)
+            //        {
+            //            weights[i] = reader.ReadDouble();
+            //        }
+            //    }
+            //}
+
+            if (File.Exists(filePath))
+            {
+                using (StreamReader reader = new StreamReader(filePath))
+                {
+                    int weightsCount = int.Parse(reader.ReadLine());
+                    weights = new double[weightsCount];
+                    for (int i = 0; i < weightsCount; i++)
+                    {
+                        weights[i] = double.Parse(reader.ReadLine());
+                    }
+                }
+            }
+        }
     }
 }

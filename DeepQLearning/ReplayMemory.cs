@@ -22,6 +22,11 @@ namespace DeepQLearning
 
         public void AddExperience(int[] state, AgentAction action, double reward, int[] nextState, bool done)
         {
+            if (memory.Count > maxSize)
+            {
+                memory.RemoveAt(0);
+            }
+
             memory.Add(new Experience
             {
                 State = state,
@@ -30,11 +35,6 @@ namespace DeepQLearning
                 NextState = nextState,
                 Done = done
             });
-
-            if (memory.Count > maxSize)
-            {
-                memory.RemoveAt(0);
-            }
         }
 
         public List<Experience> SampleBatch(int batchSize)
