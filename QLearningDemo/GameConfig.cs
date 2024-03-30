@@ -25,7 +25,7 @@ namespace QLearningDemo
         public const double DECAY_RATE = 0.00000001;   // epsilon will gradually decay so we do less exploring and more exploiting as Q-function improves
 
         //static int NUMBER_OF_TRAIN_INSTANCE = Environment.ProcessorCount * 5;
-        public static long NUM_OF_EPISODES = 100_000;
+        public static long NUM_OF_EPISODES = 500_000;
         public const int NUMBER_OF_EVALUATE = 10;
 
         public const int MAX_GAME_STEPS = int.MaxValue; // Maximum number of steps of a game

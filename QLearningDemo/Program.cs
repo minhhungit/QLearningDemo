@@ -28,6 +28,8 @@ namespace QLearningDemo
                 game.TrainAgent(episode, enableLog: false);
             }
 
+            // 7.299999999999999 is good reward and can be stop training
+
             // save Q-Table
             //GameHelper.SaveQTable();
 
