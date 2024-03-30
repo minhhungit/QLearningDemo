@@ -1,39 +1,10 @@
-﻿using System.Drawing;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Text;
 
 namespace QLearningDemo
 {
     public class GameHelper
     {
         static Random _rand = new Random();
-
-        public static void InitPositions(ref int catX, ref int catY, ref int mouseX, ref int mouseY, ref int dogX, ref int dogY)
-        {
-            if (!GameConfig.TRAIN_ONE_CASE)
-            {
-                var rand = new Random();
-
-                do
-                {
-                    catX = rand.Next(GameConfig.ENV_SIZE);
-                    catY = rand.Next(GameConfig.ENV_SIZE);
-                    mouseX = rand.Next(GameConfig.ENV_SIZE);
-                    mouseY = rand.Next(GameConfig.ENV_SIZE);
-                    dogX = rand.Next(GameConfig.ENV_SIZE);
-                    dogY = rand.Next(GameConfig.ENV_SIZE);
-                } while ((catX == mouseX && catY == mouseY) || (catX == dogX && catY == dogY) || (mouseX == dogX && mouseY == dogY));
-            }
-            else
-            {
-                catX = 0;
-                catY = 0;
-                mouseX = GameConfig.ENV_SIZE - 1;
-                mouseY = GameConfig.ENV_SIZE - 1;
-                dogX = GameConfig.ENV_SIZE - 2;
-                dogY = GameConfig.ENV_SIZE - 2;
-            }
-        }
 
         public static List<List<object>> ConvertToListOfLists(string[,] array2D)
         {
@@ -50,33 +21,6 @@ namespace QLearningDemo
             }
 
             return listOfLists;
-        }
-
-        public static void DisplayGamesPerMinute(long nbrOfGames, double totalSeconds)
-        {
-            Console.WriteLine($"Completed {nbrOfGames} games in {totalSeconds} seconds");
-
-            double gamesPerMinute = (nbrOfGames / (totalSeconds / 60));
-            if (gamesPerMinute < 0 )
-            {
-
-            }
-            Console.WriteLine("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-            Console.WriteLine($"Games per minute: {gamesPerMinute}");
-            Console.WriteLine(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
-        }
-
-        public static void SaveGameHistory(int catX, int catY, int mouseX, int mouseY, int dogX, int dogY, double reward)
-        {
-            return;
-            var folder = $"..\\..\\..\\Histories";
-            var fileName = $"{catX}{catY}-{mouseX}{mouseY}-{dogX}{dogY}.txt";
-            if (!Directory.Exists(folder))
-            {
-                Directory.CreateDirectory(folder);
-            }
-
-            File.AppendAllText(Path.Combine(folder, fileName), $"{reward}\n");
         }
 
         public static void SaveHighScoreLog(StringBuilder str)
@@ -161,49 +105,7 @@ namespace QLearningDemo
                 Console.WriteLine("==========================\n\n");
             }
         }
-
-        static object avgRewardFileLock = new object(); // Object used for locking
-        public static void SaveAvgRewardPoints(AvgRewardPoint point)
-        {
-            return;
-            lock (avgRewardFileLock)
-            {
-                // Check if the file exists
-                if (File.Exists(GameConfig.AVG_REWARD_FILE))
-                {
-                    // Open the file in read mode
-                    using (StreamReader reader = new StreamReader(GameConfig.AVG_REWARD_FILE))
-                    {
-                        // Check if the file has content
-                        if (reader.Peek() >= 0)
-                        {
-                            // Read the first character of the file
-                            //char firstChar = (char)reader.Read();
-                            File.Copy(GameConfig.AVG_REWARD_FILE, $"{GameConfig.AVG_REWARD_FILE}.bak", true);
-                        }
-                        else
-                        {
-                            //Console.WriteLine("File is empty.");
-                            File.AppendAllText(GameConfig.AVG_REWARD_FILE, $"{nameof(AvgRewardPoint.AvgReward)},{nameof(AvgRewardPoint.Episode)}\n");
-                        }
-                    }
-                }
-                else
-                {
-                    //Console.WriteLine("File does not exist.");
-                    File.AppendAllText(GameConfig.AVG_REWARD_FILE, $"{nameof(AvgRewardPoint.AvgReward)},{nameof(AvgRewardPoint.Episode)}\n");
-                }
-
-
-                // save
-                File.AppendAllText(GameConfig.AVG_REWARD_FILE, $"{point.AvgReward},{point.Episode}\n");
-
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("!!! Got converged and saved file");
-                Console.ResetColor();
-            }
-        }
-
+                
         public static bool IsGameOver(int[,] env, int x, int y)
         {
             return env[x, y] == (int)Animal.MOUSE || env[x, y] == (int)Animal.DOG;

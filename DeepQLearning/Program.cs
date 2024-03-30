@@ -5,13 +5,13 @@
         static void Main(string[] args)
         {
             int numActions = Enum.GetNames(typeof(AgentAction)).Length; // left, right, up, down
-            const int numEpisodes = 200_000;
+            const int numEpisodes = 10000;
             const int batchSize = 32;
 
             Env env = new Env(GameConfig.ENV_SIZE);
             QNetwork qNetwork = new QNetwork(6, numActions); // 6 input nodes for (cat_x, cat_y, mouse_x, mouse_y, dog_x, dog_y)
             QNetwork targetNetwork = new QNetwork(6, numActions);
-            ReplayMemory memory = new ReplayMemory(200_000);
+            ReplayMemory memory = new ReplayMemory(1000);
             //string modelFilePath = "trained_model.dat";
             string modelFilePath = "trained_model.txt";
 

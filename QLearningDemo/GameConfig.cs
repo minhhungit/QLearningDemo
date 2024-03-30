@@ -8,7 +8,7 @@ namespace QLearningDemo
         public const string AVG_REWARD_FILE = "..\\..\\..\\avgReward.csv";
 
         // Define the game environment
-        public const int ENV_SIZE = 15;
+        public const int ENV_SIZE = 6;
 
         public static int NUMBER_OF_ACTION = Enum.GetNames(typeof(AgentAction)).Length;
 
@@ -25,13 +25,13 @@ namespace QLearningDemo
         public const double DECAY_RATE = 0.00000001;   // epsilon will gradually decay so we do less exploring and more exploiting as Q-function improves
 
         //static int NUMBER_OF_TRAIN_INSTANCE = Environment.ProcessorCount * 5;
-        public static long NUM_OF_EPISODES = 500_000;
+        public static long NUM_OF_EPISODES = 10_000;
         public const int NUMBER_OF_EVALUATE = 10;
 
         public const int MAX_GAME_STEPS = int.MaxValue; // Maximum number of steps of a game
 
         public const bool GREEDLY_ONLY_MODE_LEARNING = false;
-        public const bool GREEDLY_ONLY_MODE_EVALUATE = false;
+        public const bool GREEDLY_ONLY_MODE_EVALUATE = true;
 
         //public const double CONVERGENCE_THRESHOLD = -0.000001; // Convergence threshold
         //public static double PREV_MAX_CHANGE = double.MaxValue;

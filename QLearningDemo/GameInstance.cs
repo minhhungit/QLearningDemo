@@ -4,11 +4,9 @@ namespace QLearningDemo
 {
     public class GameInstance
     {
-        int[,] env;
-
         public GameInstance()
         {
-            env = new int[GameConfig.ENV_SIZE, GameConfig.ENV_SIZE];
+            
         }
 
         /// <summary>
@@ -18,31 +16,26 @@ namespace QLearningDemo
         /// <param name="convergedPoint"></param>
         /// <param name="enableLog"></param>
         /// <returns></returns>
-        public double TrainAgent(long episode, bool enableLog = false)
+        public double Run(GameEnvironemnt gameEnv, long episode, bool isEvaluate, bool enableLog = false)
         {
-            var isGreedyOnly = GameConfig.GREEDLY_ONLY_MODE_LEARNING;
-
-            //Console.WriteLine($"New game {DateTime.Now:HH:mm:ss fff}");
-
-            // Train the Q-learning agent if no saved Q-table is found
-            // Initialize the game environment
-            int catX = -1, catY = -1, mouseX = -1, mouseY = -1, dogX = -1, dogY = -1;
-
-            GameHelper.InitPositions(ref catX, ref catY, ref mouseX, ref mouseY, ref dogX, ref dogY);
-
-            // Reset the game environment
-            Array.Clear(env, 0, env.Length);
-
-            env[catX, catY] = (int)Animal.CAT;
-            env[mouseX, mouseY] = (int)Animal.MOUSE;
-            env[dogX, dogY] = (int)Animal.DOG;
+            var isGreedyOnly = isEvaluate ? GameConfig.GREEDLY_ONLY_MODE_EVALUATE : GameConfig.GREEDLY_ONLY_MODE_LEARNING;
 
             if (enableLog)
             {
-                Console.WriteLine($"Initial CAT [{catX},{catY}] - MOUSE [{mouseX},{mouseY}] - DOG [{dogX},{dogY}] - GreedyOnly ({(isGreedyOnly ? "true" : "false")})");
+                Console.WriteLine($"Initial CAT [{gameEnv.CatPosition.X},{gameEnv.CatPosition.Y}] - MOUSE [{gameEnv.MousePosition.X},{gameEnv.MousePosition.Y}]");
+
+                int dogNum = 0;
+                foreach (var dog in gameEnv.DogPositions)
+                {
+                    dogNum++;
+                    Console.WriteLine($"DOG {dogNum}: {dog.X},{dog.Y}");
+                }
+
+                Console.WriteLine($"GreedyOnly {(isGreedyOnly ? "true" : "false")}");
             }
 
-            int currentX = catX, currentY = catY;
+            int currentX = gameEnv.CatPosition.X, currentY = gameEnv.CatPosition.Y;
+
             bool isGameOver = false;
             int steps = 0; // Keep track of the number of steps
 
@@ -56,13 +49,17 @@ namespace QLearningDemo
             {
                 for (int j = 0; j < GameConfig.ENV_SIZE; j++)
                 {
-                    tbl[i, j] = $"{i},{j}";
+                    tbl[i, j] = "";//$"{i},{j}";
                 }
             }
 
-            tbl[catX, catY] = "C";
-            tbl[mouseX, mouseY] = "M";
-            tbl[dogX, dogY] = "D";
+            tbl[gameEnv.CatPosition.X, gameEnv.CatPosition.Y] = "C";
+            tbl[gameEnv.MousePosition.X, gameEnv.MousePosition.Y] = "M";
+
+            foreach (var dog in gameEnv.DogPositions)
+            {
+                tbl[dog.X, dog.Y] = "D";
+            }
 
             List<Tuple<int, int>> listPreviousPosition = new List<Tuple<int, int>>();
 
@@ -93,7 +90,7 @@ namespace QLearningDemo
                     int newX = nextAction.X, newY = nextAction.Y;
 
                     // Calculate the reward for the new state
-                    var currentReward = GameHelper.GetReward(env, newX, newY, ref caughtMouse);
+                    var currentReward = GameHelper.GetReward(gameEnv.Env, newX, newY, ref caughtMouse);
                     reward += currentReward;
 
                     if (enableLog)
@@ -134,31 +131,36 @@ namespace QLearningDemo
                         }
                     }
 
-                    if ($"{newX},{newY}" == $"{mouseX},{mouseY}")
+                    tbl[newX, newY] = $"{actionIcon}";
+
+                    if ($"{newX},{newY}" == $"{gameEnv.MousePosition.X},{gameEnv.MousePosition.Y}")
                     {
                         tbl[newX, newY] = $"{actionIcon} M";
                     }
-                    else if ($"{newX},{newY}" == $"{dogX},{dogY}")
-                    {
-                        tbl[newX, newY] = $"{actionIcon} D";
-                    }
-                    else
-                    {
-                        tbl[newX, newY] = $"{actionIcon}";
-                    }
 
-                    // Update the Q-table
-                    double maxQNew = GetMaxQ(newX, newY, GameConfig.Q);
-                    double oldQ = GameConfig.Q[currentX, currentY, (int)nextAction.Action];
-                    double newQ = oldQ + GameConfig.LEARNING_RATE * (currentReward + GameConfig.DISCOUNT_FACTOR * maxQNew - oldQ);
-                    GameConfig.Q[currentX, currentY, (int)nextAction.Action] = newQ;
+                    foreach (var dog in gameEnv.DogPositions)
+                    {
+                        if ($"{newX},{newY}" == $"{dog.X},{dog.Y}")
+                        {
+                            tbl[newX, newY] = $"{actionIcon} D";
+                        }
+                    }                    
+
+                    if (!isEvaluate)
+                    {
+                        // Update the Q-table
+                        double maxQNew = GetMaxQ(newX, newY, GameConfig.Q);
+                        double oldQ = GameConfig.Q[currentX, currentY, (int)nextAction.Action];
+                        double newQ = oldQ + GameConfig.LEARNING_RATE * (currentReward + GameConfig.DISCOUNT_FACTOR * maxQNew - oldQ);
+                        GameConfig.Q[currentX, currentY, (int)nextAction.Action] = newQ;
+                    }                    
 
                     // Update the current state
                     currentX = newX;
                     currentY = newY;
 
                     // Check if the game is over
-                    isGameOver = GameHelper.IsGameOver(env, newX, newY);
+                    isGameOver = GameHelper.IsGameOver(gameEnv.Env, newX, newY);
                 }
 
                 steps++;
