@@ -313,102 +313,44 @@ namespace QLearningDemo
             };
         }
 
-        // Calculate the reward for the new state
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="x">next X</param>
-        /// <param name="y">next Y</param>
-        /// <param name="environment"></param>
-        /// <param name="gotStuck"></param>
-        /// <returns></returns>
-        public static double GetReward(int [,] environment, int x, int y, ref bool caughtMouse)
-        {
-            if (environment[x, y] == (int)Animal.MOUSE)
-            {
-                //Console.WriteLine("caught");
-                // Cat caught the mouse
-                caughtMouse = true;
-                return 10.0;
-            }
-            else if (environment[x, y] == (int)Animal.DOG)
-            {
-                //Console.WriteLine("Cat caught by the dog");
-                // Cat caught by the dog
-                return -10.0;
-            }
-            else
-            {
-                //Console.WriteLine("Small negative reward for every step");
-                // Small negative reward for every step
-                return -0.1;
-            }
-        }
-
         public static double GetDecayedEpsilon(long totalPlayedGames)
         {
             return Math.Max(GameConfig.MIN_EPSILON, (GameConfig.START_EPSILON - GameConfig.MIN_EPSILON) * Math.Exp(-GameConfig.DECAY_RATE * totalPlayedGames));
         }
 
-        public static double CalculateMaxQValue()
-        {
-            double maxChange = 0;
+        ///// <summary>
+        ///// preMaxValue = GameConfig.Q[i, j, a]
+        ///// </summary>
+        ///// <param name="preMaxValue"></param>
+        ///// <returns></returns>
+        //public static double CalculateMaxQValueChange(double [,,] prevQValues)
+        //{
+        //    double maxChange = 0;
 
-            // Calculate maximum change in Q-values
-            for (int i = 0; i < GameConfig.ENV_SIZE; i++)
-            {
-                for (int j = 0; j < GameConfig.ENV_SIZE; j++)
-                {
-                    for (int a = 0; a < GameConfig.NUMBER_OF_ACTION; a++)
-                    {
-                        // Calculate the change in Q-value for this state-action pair
-                        double qValueChange = Math.Abs(GameConfig.Q[i, j, a]);
-
-                        // Update maxChange if necessary
-                        if (qValueChange > maxChange)
-                        {
-                            maxChange = qValueChange;
-                        }
-                    }
-                }
-            }
-
-            return maxChange;
-        }
-
-        /// <summary>
-        /// preMaxValue = GameConfig.Q[i, j, a]
-        /// </summary>
-        /// <param name="preMaxValue"></param>
-        /// <returns></returns>
-        public static double CalculateMaxQValueChange(double [,,] prevQValues)
-        {
-            double maxChange = 0;
-
-            // Calculate maximum change in Q-values
-            for (int i = 0; i < GameConfig.ENV_SIZE; i++)
-            {
-                for (int j = 0; j < GameConfig.ENV_SIZE; j++)
-                {
-                    for (int a = 0; a < GameConfig.NUMBER_OF_ACTION; a++)
-                    {
-                        // Store the previous Q-value for comparison
-                        double prevQValue = prevQValues[i, j, a];
+        //    // Calculate maximum change in Q-values
+        //    for (int i = 0; i < GameConfig.ENV_SIZE; i++)
+        //    {
+        //        for (int j = 0; j < GameConfig.ENV_SIZE; j++)
+        //        {
+        //            for (int a = 0; a < GameConfig.NUMBER_OF_ACTION; a++)
+        //            {
+        //                // Store the previous Q-value for comparison
+        //                double prevQValue = prevQValues[i, j, a];
 
 
-                        // Calculate the change in Q-value for this state-action pair
-                        double qValueChange = Math.Abs(GameConfig.Q[i, j, a] - prevQValue);
+        //                // Calculate the change in Q-value for this state-action pair
+        //                double qValueChange = Math.Abs(GameConfig.Q[i, j, a] - prevQValue);
 
-                        // Update maxChange if necessary
-                        if (qValueChange > maxChange)
-                        {
-                            maxChange = qValueChange;
-                        }
-                    }
-                }
-            }
+        //                // Update maxChange if necessary
+        //                if (qValueChange > maxChange)
+        //                {
+        //                    maxChange = qValueChange;
+        //                }
+        //            }
+        //        }
+        //    }
 
-            return maxChange;
-        }
+        //    return maxChange;
+        //}
     }
 }

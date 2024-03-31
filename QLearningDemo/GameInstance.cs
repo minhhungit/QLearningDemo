@@ -90,7 +90,7 @@ namespace QLearningDemo
                     int newX = nextAction.X, newY = nextAction.Y;
 
                     // Calculate the reward for the new state
-                    var currentReward = GameHelper.GetReward(gameEnv.Env, newX, newY, ref caughtMouse);
+                    var currentReward = gameEnv.GetReward(newX, newY, ref caughtMouse);
                     reward += currentReward;
 
                     if (enableLog)

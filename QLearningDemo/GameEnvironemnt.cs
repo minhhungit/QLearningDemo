@@ -1,6 +1,4 @@
-﻿using System.Xml.Linq;
-
-namespace QLearningDemo
+﻿namespace QLearningDemo
 {
     public class CharacterPosition
     {
@@ -136,5 +134,63 @@ namespace QLearningDemo
                 Env[d.X, d.Y] = 0;
             }
         }
+
+        // Calculate the reward for the new state
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="x">next X</param>
+        /// <param name="y">next Y</param>
+        /// <param name="environment"></param>
+        /// <param name="gotStuck"></param>
+        /// <returns></returns>
+        public double GetReward(int x, int y, ref bool caughtMouse)
+        {
+            if (Env[x, y] == (int)Animal.MOUSE)
+            {
+                //Console.WriteLine("caught");
+                // Cat caught the mouse
+                caughtMouse = true;
+                return 10.0;
+            }
+            else if (Env[x, y] == (int)Animal.DOG)
+            {
+                //Console.WriteLine("Cat caught by the dog");
+                // Cat caught by the dog
+                return -10.0;
+            }
+            else
+            {
+                //Console.WriteLine("Small negative reward for every step");
+                // Small negative reward for every step
+                return -0.1;
+            }
+        }
+
+        //public static double CalculateMaxQValue()
+        //{
+        //    double maxChange = 0;
+
+        //    // Calculate maximum change in Q-values
+        //    for (int i = 0; i < GameConfig.ENV_SIZE; i++)
+        //    {
+        //        for (int j = 0; j < GameConfig.ENV_SIZE; j++)
+        //        {
+        //            for (int a = 0; a < GameConfig.NUMBER_OF_ACTION; a++)
+        //            {
+        //                // Calculate the change in Q-value for this state-action pair
+        //                double qValueChange = Math.Abs(GameConfig.Q[i, j, a]);
+
+        //                // Update maxChange if necessary
+        //                if (qValueChange > maxChange)
+        //                {
+        //                    maxChange = qValueChange;
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    return maxChange;
+        //}
     }
 }
