@@ -177,7 +177,7 @@ namespace QLearningDemo
                 GameConfig.MAX_REWARD = reward;
                 GameConfig.MAX_REWARD_AT = GameConfig.TOTAL_NBR_OF_PLAYED_GAMES;
 
-                GameHelper.SaveQTable();
+                //GameHelper.SaveQTable();
 
                 Console.WriteLine("NEW HIGH SCORE");
                 Console.WriteLine($"{GameConfig.MAX_REWARD} at {GameConfig.MAX_REWARD_AT}");
@@ -187,7 +187,7 @@ namespace QLearningDemo
                 var log = builder.Export();
                 log.AppendLine($"Reward {reward} at {GameConfig.TOTAL_NBR_OF_PLAYED_GAMES}");
                 log.AppendLine($"\n====================================\n");
-                GameHelper.SaveHighScoreLog(log);
+                //GameHelper.SaveHighScoreLog(log);
 
                 enableLog = true;
             }

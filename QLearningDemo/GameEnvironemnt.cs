@@ -1,4 +1,6 @@
-﻿namespace QLearningDemo
+﻿using System.Xml.Linq;
+
+namespace QLearningDemo
 {
     public class CharacterPosition
     {
@@ -8,36 +10,36 @@
 
     public class GameEnvironemnt
     {
-        public int[,] Env;
+        public int[,] Env { get; set; }
 
-        public CharacterPosition CatPosition = new CharacterPosition();
-        public CharacterPosition MousePosition = new CharacterPosition();
-        public List<CharacterPosition> DogPositions = new List<CharacterPosition>();
+        public CharacterPosition CatPosition { get; set; }
+        public CharacterPosition MousePosition { get; set; }
+        public List<CharacterPosition> DogPositions { get; set; }
 
         Random rand;
 
         public GameEnvironemnt()
         {
             rand = new Random();
+
+            Env = new int[GameConfig.ENV_SIZE, GameConfig.ENV_SIZE];
+
+            CatPosition = new CharacterPosition();
+            MousePosition = new CharacterPosition();
+            DogPositions = new List<CharacterPosition>();
+
             Reset();
         }
 
         public void Reset()
         {
-            if (Env == null)
+            for (int i = 0; i < GameConfig.ENV_SIZE; i++)
             {
-                Env = new int[GameConfig.ENV_SIZE, GameConfig.ENV_SIZE];
-            }
-            else
-            {
-                for (int i = 0; i < GameConfig.ENV_SIZE; i++)
+                for (int j = 0; j < GameConfig.ENV_SIZE; j++)
                 {
-                    for (int j = 0; j < GameConfig.ENV_SIZE; j++)
+                    if (Env[i, j] != (int)Animal.DOG)
                     {
-                        if (Env[i,j] != (int)Animal.DOG)
-                        {
-                            Env[i, j] = 0;
-                        }
+                        Env[i, j] = 0;
                     }
                 }
             }
@@ -97,36 +99,42 @@
             return DogPositions.Count() + 2;
         }
         
-        public CharacterPosition? AddDog()
+        public (int x, int y)? AddDog()
         {
             // check if enviroment still has free slot for dog
-            if (DogPositions.Count() >= ((GameConfig.ENV_SIZE * GameConfig.ENV_SIZE) / 2)) // max(number dogs) = a half of grid
+            if (DogPositions.Count() >= ((GameConfig.ENV_SIZE * GameConfig.ENV_SIZE) - 2))  // -2 is cat + mouse
             {
                 return null;
             }
 
             int dogX;
             int dogY;
+
             do
             {
                 dogX = rand.Next(GameConfig.ENV_SIZE);
                 dogY = rand.Next(GameConfig.ENV_SIZE);
-            } while ((CatPosition.X == dogX && CatPosition.Y == dogY) || MousePosition.X == dogX && MousePosition.Y == dogY);
+            } while ((CatPosition.X == dogX && CatPosition.Y == dogY) || (MousePosition.X == dogX && MousePosition.Y == dogY) || DogPositions.Any(d => d.X == dogX && d.Y == dogY));
 
-            var dog = new CharacterPosition();
-
-            dog.X = dogX;
-            dog.Y = dogY;
-
-            DogPositions.Add(dog);
-
-            Env[dogX, dogY] = (int)Animal.DOG;
-
-            return new CharacterPosition
+            DogPositions.Add(new CharacterPosition
             {
                 X = dogX,
                 Y = dogY
-            };       
+            });
+
+            Env[dogX, dogY] = (int)Animal.DOG;
+
+            return (dogX, dogY);
+        }
+
+        public void RemoveDog(int x, int y)
+        {
+            var dogs = DogPositions.Where(d => d.X == x && d.Y == y).ToList();
+            foreach (var d in dogs)
+            {
+                DogPositions.Remove(d);
+                Env[d.X, d.Y] = 0;
+            }
         }
     }
 }
